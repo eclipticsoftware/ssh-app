@@ -1,9 +1,6 @@
-import { createGlobalStyle } from 'styled-components'
-import { reactModalStyles } from './reactModal.styles'
+import {createGlobalStyle} from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle<{ globalStyles: any; theme: any }>`
-
-${reactModalStyles}
 
 ${props => (props.globalStyles ? props.globalStyles : '')}
 

@@ -36,12 +36,13 @@ export const FormikSelectFile = ({name, config}: FormikSelectFileProps): JSX.Ele
     e.preventDefault()
     const path = await open({
       multiple: false,
+      title: 'Select SSH Key'
     })
 
     if(!touched) setTouched(true)
 
     if(path) setValue(path as string)
-    else setValue('')
+
   },[touched])
 
   return (

@@ -15,6 +15,10 @@
       "dialog": {
         "open": true,
         "save": true
+      },
+      "fs": {
+        "all": true,
+        "scope": ["$HOME","$HOME/*"]
       }
     },
     "bundle": {

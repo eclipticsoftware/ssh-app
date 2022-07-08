@@ -79,7 +79,7 @@ const ErrorBlockView = styled.div`
 `
 
 
-export type ErrorBlockErr = Error | null
+export type ErrorBlockErr = string | null
 
 type ErrorBlockProps = {
 	error?: ErrorBlockErr
@@ -102,7 +102,7 @@ export const ErrorBlock = ({
 							<Icon type='err' />
 						</div>
 						<p className='err-msg' color='err'>
-							{error.message}
+							{error}
 						</p>
 					</div>
 				
