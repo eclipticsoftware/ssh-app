@@ -60,7 +60,6 @@ export type ConnectFormProps = {
 export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element => {
   const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
   const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
-  const [isConnected, setConnected] = useState(false, 'isConnected')
 
   const {loading, settings} = useSettings()
   const {granted} = useGetNotificationPermission()
@@ -79,8 +78,10 @@ export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element
       setSettingsErr(err)
     }
     try {
-      const res = await invoke('start_tunnel', vals)
-      console.log('res: ', res)
+      const res = await invoke('start_tunnel', {
+        settings: vals
+      })
+      console.log('connection res: ', res)
 
       if(granted) sendNotification({
         title: 'SUCCESS',
@@ -88,6 +89,7 @@ export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element
       })
       onConnect()
     } catch (err: any) {
+      console.log('Connection error: ', err)
       setConnectionErr(err)
       onError(err)
     }
@@ -95,7 +97,6 @@ export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element
 
   const error = settingsSaveErr || connectionErr
 
-  console.log('initial values: ', initialVals)
   return (
     <ConnectFormView>
       <div className="board">

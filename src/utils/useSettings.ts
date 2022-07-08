@@ -23,10 +23,8 @@ export const useSettings = () => {
 
         const rawFile = await readTextFile(userSettingsPath, {dir: BaseDirectory.Home})
         
-        console.log('rawFile: ', rawFile)
         if(rawFile) {
           const file = JSON.parse(rawFile)
-          console.log('file: ', file)
 
           file && setSettings((state) => ({
             ...state,

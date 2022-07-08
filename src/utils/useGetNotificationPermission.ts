@@ -14,13 +14,11 @@ export const useGetNotificationPermission = () => {
       const hasPermission = await isPermissionGranted()
 
       if(!hasPermission) {
-        console.log('requesting permission')
         const permission = await requestPermission()
         if(permission === 'granted') setGranted(true)
         else setDenied(true)
 
       } else {
-        console.log('has permission!')
         setGranted(true)
       }
       setLoading(false)
