@@ -17,25 +17,7 @@ import Spinner from '../../UI/Spinner/Spinner'
 
   
 export const connectFormStyles = css`
-  width: 100%;
-  height: 100%;
-  min-width: 100vw;
-  min-height: 100vh;;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: ${props => props.theme.colors.lightGrey.val};
   
-  .board {
-    background: ${props => props.theme.colors.white.val};
-    border-radius: 10px;;
-    max-width: 600px;
-    padding: 2em 4em;
-    box-shadow: 0 2px 3px ${props => props.theme.colors.grey.opacity(70).val};
-  }
-  hr {
-    margin: 1em 0;
-  }
 
   .submit-btn {
     margin-top: 1em;
@@ -78,8 +60,12 @@ export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element
       setSettingsErr(err)
     }
     try {
+      const {keyPath, ...data} = vals
       const res = await invoke('start_tunnel', {
-        settings: vals
+        settings: {
+          ...data,
+          key_path: keyPath
+        }
       })
       console.log('connection res: ', res)
 
