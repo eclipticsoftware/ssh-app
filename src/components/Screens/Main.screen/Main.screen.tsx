@@ -1,6 +1,8 @@
-import {useState} from 'react'
+import {listen} from '@tauri-apps/api/event'
+import {useEffect, useState} from 'react'
 import styled, {css} from 'styled-components'
 import {ConnectForm, ConnectFormProps} from '../Connect.form'
+import {ConnectedScreen, ConnectedScreenProps} from '../Connected.screen'
   
 export const mainScreenStyles = css`
   width: 100%;
@@ -27,22 +29,35 @@ export const mainScreenStyles = css`
 const MainScreenView = styled.div`
   ${ mainScreenStyles }
 `
-  
-export type MainScreenProps = {
-  
-}
-export const MainScreen = ({}: MainScreenProps): JSX.Element => {
-  const [isConnected, setConnected] = useState(false)
+export type ConnectionStatus = 'Connected' | 'Dropped' | 'Reconnecting...'
+
+export const MainScreen = (): JSX.Element => {
+  const [status, setStatus] = useState<ConnectionStatus | null>(null)
+  const showConnectionScreen = !!status && status !== 'Dropped'
 
   const onConnect: ConnectFormProps['onConnect'] = () => {
-
+    setStatus('Connected')
   }
-  const onError:ConnectFormProps['onError'] = (err) => {
-
+  const onError:ConnectFormProps['onError'] = () => {
+    setStatus('Dropped')
   }
+
+  const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
+    setStatus(null)
+  }
+
+  useEffect(() => {
+    listen('tunnel_error', (error) => {
+      setStatus('Dropped')
+    })
+  },[])
+
   return (
     <MainScreenView>
-      <ConnectForm onConnect={onConnect} onError={onError} />
+      {showConnectionScreen ? <ConnectedScreen status={status} onDisconnect={onDisconnect} /> : (
+
+      <ConnectForm onConnect={onConnect} onError={onError} status={status} />
+      )}
     </MainScreenView>
   )
 }

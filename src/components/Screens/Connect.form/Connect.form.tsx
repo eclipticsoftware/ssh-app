@@ -13,6 +13,7 @@ import {FormikSubmitBtn} from '../../UI/Formik/Formik.fields/Formik.submit'
 import {FormikText} from '../../UI/Formik/Formik.fields/Formik.text'
 import {FormikForm} from '../../UI/Formik/Formik.form'
 import Spinner from '../../UI/Spinner/Spinner'
+import {ConnectionStatus} from '../Main.screen'
 
 
   
@@ -38,8 +39,9 @@ const validationSchema = Yup.object().shape({
 export type ConnectFormProps = {
   onConnect: () => void
   onError: (error: ErrorBlockErr) => void
+  status: ConnectionStatus | null
 }
-export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element => {
+export const ConnectForm = ({onConnect, onError, status}: ConnectFormProps): JSX.Element => {
   const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
   const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
@@ -94,6 +96,7 @@ export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element
         validationSchema={validationSchema}
         enableReinitialize
       >
+        {status ? <ErrorBlock error={'Connection Dropped'} /> : null}
         <FormikText name='host' config={{label: 'IP Address', isReq: true}} />
         <FormikText name='user' config={{label: 'Username', isReq: true}} />
         <FormikText name='port' config={{label: 'Local Port (to forward to)', isReq: true}} />
