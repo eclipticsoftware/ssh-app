@@ -52,8 +52,8 @@ export const MainScreen = (): JSX.Element => {
 
 		listen('tunnel_error', e => {
 			const error = e.payload
-
-			setStatus('Dropped')
+			if (error === 'RETRYING') setStatus('Reconnecting')
+			else setStatus('Dropped')
 		}).then(handler => (unlisten = handler))
 
 		return () => {
