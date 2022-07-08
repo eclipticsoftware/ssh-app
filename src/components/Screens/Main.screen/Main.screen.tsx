@@ -1,6 +1,7 @@
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
+import { constants } from '../../../app.config'
 import { ConnectForm, ConnectFormProps } from '../Connect.form'
 import { ConnectedScreen, ConnectedScreenProps } from '../Connected.screen'
 
@@ -50,9 +51,9 @@ export const MainScreen = (): JSX.Element => {
 	useEffect(() => {
 		let unlisten: UnlistenFn
 
-		listen('tunnel_error', e => {
+		listen(constants.tunnelErr, e => {
 			const error = e.payload
-			if (error === 'RETRYING') setStatus('Reconnecting')
+			if (error === constants.retrying) setStatus('Reconnecting')
 			else setStatus('Dropped')
 		}).then(handler => (unlisten = handler))
 

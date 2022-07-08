@@ -3,7 +3,7 @@ import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
-import { userSettingsPath } from '../../../app.config'
+import { constants, userSettingsPath } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
@@ -63,7 +63,7 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 		}
 		try {
 			const { keyPath, ...data } = vals
-			const res = await invoke('start_tunnel', {
+			const res = await invoke(constants.startTunnel, {
 				settings: {
 					...data,
 					key_path: keyPath,

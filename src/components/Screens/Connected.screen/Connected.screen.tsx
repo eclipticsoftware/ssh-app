@@ -1,4 +1,6 @@
+import { invoke } from '@tauri-apps/api'
 import styled, { css } from 'styled-components'
+import { constants } from '../../../app.config'
 import { Icon } from '../../UI/Icon'
 import { ConnectionStatus } from '../Main.screen'
 
@@ -25,8 +27,9 @@ export type ConnectedScreenProps = {
 export const ConnectedScreen = ({ status, onDisconnect }: ConnectedScreenProps): JSX.Element => {
 	const disconnectHandler = async () => {
 		try {
+			await invoke(constants.endTunnel)
 			onDisconnect()
-		} catch (err) {}
+		} catch {}
 	}
 	return (
 		<ConnectedScreenView>
