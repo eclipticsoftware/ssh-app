@@ -1,0 +1,19 @@
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "quoteProps": "consistent",
+  "jsxSingleQuote": true,
+  "useTabs": true,
+  "tabWidth": 2,
+  "arrowParens": "avoid",
+  "overrides": [
+    {
+      "files": "*.md",
+      "options": {
+        "ignore": true
+      }
+    }
+  ]
+}

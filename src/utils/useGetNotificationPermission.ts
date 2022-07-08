@@ -1,35 +1,33 @@
-import {isPermissionGranted, requestPermission} from "@tauri-apps/api/notification"
-import {useEffect, useState} from "react"
-
+import { isPermissionGranted, requestPermission } from '@tauri-apps/api/notification'
+import { useEffect, useState } from 'react'
 
 export const useGetNotificationPermission = () => {
-  const [granted, setGranted] = useState(false)
-  const [denied, setDenied] = useState(false)
-  const [loading, setLoading] = useState(false)
+	const [granted, setGranted] = useState(false)
+	const [denied, setDenied] = useState(false)
+	const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const ask = async () => {
-      setLoading(true)
+	useEffect(() => {
+		const ask = async () => {
+			setLoading(true)
 
-      const hasPermission = await isPermissionGranted()
+			const hasPermission = await isPermissionGranted()
 
-      if(!hasPermission) {
-        const permission = await requestPermission()
-        if(permission === 'granted') setGranted(true)
-        else setDenied(true)
+			if (!hasPermission) {
+				const permission = await requestPermission()
+				if (permission === 'granted') setGranted(true)
+				else setDenied(true)
+			} else {
+				setGranted(true)
+			}
+			setLoading(false)
+		}
 
-      } else {
-        setGranted(true)
-      }
-      setLoading(false)
-    }
+		if (!loading && !granted && !denied) ask()
+	}, [granted, denied, loading])
 
-    if(!loading && !granted && !denied) ask()
-  },[granted, denied, loading])
-
-  return {
-    granted,
-    denied,
-    loading,
-  }
+	return {
+		granted,
+		denied,
+		loading,
+	}
 }
