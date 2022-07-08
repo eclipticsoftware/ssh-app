@@ -7,6 +7,7 @@ import { constants, userSettingsPath } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
+import { Board } from '../../UI/Board'
 import { ErrorBlock, ErrorBlockErr } from '../../UI/ErrorBlock'
 import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.file'
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
@@ -88,7 +89,7 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 
 	return (
 		<ConnectFormView>
-			<div className='board'>
+			<Board boardTitle='NNR SSH CLIENT'>
 				{loading ? (
 					<Spinner />
 				) : (
@@ -108,7 +109,7 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 						<FormikSubmitBtn>Connect</FormikSubmitBtn>
 					</FormikForm>
 				)}
-			</div>
+			</Board>
 		</ConnectFormView>
 	)
 }

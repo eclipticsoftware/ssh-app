@@ -1,5 +1,5 @@
 // import { } from '@fortawesome/pro-duotone-svg-icons'
-import {library} from '@fortawesome/fontawesome-svg-core'
+import { library } from '@fortawesome/fontawesome-svg-core'
 import * as light from '@fortawesome/pro-light-svg-icons'
 import get from 'lodash/get'
 import values from 'lodash/values'
@@ -14,6 +14,7 @@ const iconLibAlerts = {
 	bellSlash: ['fal', 'bell-slash'],
 	bellAlert: ['fal', 'bell-exclamation'],
 	pending: ['fal', 'hourglass-half'],
+	ssh: ['fal', 'thunderstorm'],
 }
 
 const iconLibDirectional = {
@@ -232,9 +233,6 @@ export type IconType = keyof typeof iconMap
 
 const lightIcons = values(light).filter(val => !!get(val, 'icon'))
 
-export const defaultLib: any = [
-	...lightIcons,
-
-]
+export const defaultLib: any = [...lightIcons]
 
 library.add(defaultLib)

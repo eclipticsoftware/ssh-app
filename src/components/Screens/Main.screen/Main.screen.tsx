@@ -15,13 +15,6 @@ export const mainScreenStyles = css`
 	justify-content: center;
 	background: ${props => props.theme.colors.lightGrey.val};
 
-	.board {
-		background: ${props => props.theme.colors.white.val};
-		border-radius: 10px;
-		max-width: 600px;
-		padding: 2em 4em;
-		box-shadow: 0 2px 3px ${props => props.theme.colors.grey.opacity(70).val};
-	}
 	hr {
 		margin: 1em 0;
 	}

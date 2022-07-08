@@ -1,6 +1,6 @@
 export const canPrint = true
 
-export const userSettingsPath = 'user-settings.json'
+export const userSettingsPath = 'eclo-ssh-client-user-settings.json'
 
 export const constants = {
 	// start ssh connection invokation name

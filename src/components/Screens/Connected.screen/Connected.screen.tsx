@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api'
 import styled, { css } from 'styled-components'
 import { constants } from '../../../app.config'
+import { Board } from '../../UI/Board'
 import { Icon } from '../../UI/Icon'
 import { ConnectionStatus } from '../Main.screen'
 
@@ -33,7 +34,7 @@ export const ConnectedScreen = ({ status, onDisconnect }: ConnectedScreenProps):
 	}
 	return (
 		<ConnectedScreenView>
-			<div className='board'>
+			<Board boardTitle='NNR SSH CLIENT'>
 				<div className='connection-info'>
 					<h5>Status:</h5>
 					<div className={`status __${status.toLowerCase()}`}>
@@ -44,7 +45,7 @@ export const ConnectedScreen = ({ status, onDisconnect }: ConnectedScreenProps):
 				<button onClick={disconnectHandler} disabled={status === 'Connected'}>
 					Disconnect
 				</button>
-			</div>
+			</Board>
 		</ConnectedScreenView>
 	)
 }
