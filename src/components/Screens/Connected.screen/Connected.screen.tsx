@@ -1,17 +1,24 @@
 import { invoke } from '@tauri-apps/api'
 import styled, { css } from 'styled-components'
 import { constants } from '../../../app.config'
-import { Board } from '../../UI/Board'
-import { Icon } from '../../UI/Icon'
 import { ConnectionStatus } from '../Main.screen'
 
 export const connectedScreenStyles = css`
-	.status {
-		&.__connected {
-			color: ${props => props.theme.colors.ok.val};
+	.disconnect-btn {
+		outline: none;
+		box-shadow: none;
+		border: solid 2px;
+		padding: 1em 2em;
+		color: ${props => props.theme.colors.secondary.val};
+
+		&:hover {
+			color: ${props => props.theme.colors.white.val};
+			background: ${props => props.theme.colors.secondary.val};
 		}
-		&.__reconnecting {
-			color: ${props => props.theme.colors.grey.val};
+
+		&:disabled {
+			color: ${props => props.theme.colors.lightGrey.val} !important;
+			background: none !important;
 		}
 	}
 `
@@ -34,18 +41,13 @@ export const ConnectedScreen = ({ status, onDisconnect }: ConnectedScreenProps):
 	}
 	return (
 		<ConnectedScreenView>
-			<Board boardTitle='NNR SSH CLIENT'>
-				<div className='connection-info'>
-					<h5>Status:</h5>
-					<div className={`status __${status.toLowerCase()}`}>
-						<Icon type={status === 'Connected' ? 'ok' : 'err'} />
-						<span>{status === 'Connected' ? status : `${status}...`}</span>
-					</div>
-				</div>
-				<button onClick={disconnectHandler} disabled={status === 'Connected'}>
-					Disconnect
-				</button>
-			</Board>
+			<button
+				className='disconnect-btn'
+				onClick={disconnectHandler}
+				disabled={status === 'RETRYING'}
+			>
+				Disconnect
+			</button>
 		</ConnectedScreenView>
 	)
 }

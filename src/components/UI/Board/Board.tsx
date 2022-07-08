@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
-import { Icon } from '../Icon'
 
 export const boardStyles = css`
 	background: ${props => props.theme.colors.white.val};
@@ -9,7 +8,7 @@ export const boardStyles = css`
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	max-width: 600px;
+	max-width: 650px;
 
 	& > header {
 		padding: 1.5em 4em;
@@ -17,18 +16,6 @@ export const boardStyles = css`
 		color: ${props => props.theme.colors.white.val};
 		display: flex;
 		align-items: center;
-
-		.icon {
-			height: 2rem;
-			width: auto;
-			margin-right: 1em;
-		}
-
-		h2 {
-			padding: none;
-			margin: none;
-			font-size: 1.5rem;
-		}
 	}
 
 	& > main {
@@ -42,17 +29,14 @@ const BoardView = styled.div`
 `
 
 export type BoardProps = {
-	boardTitle: string
+	boardHeader: ReactNode
 	children: ReactNode
 	className?: string
 }
-export const Board = ({ boardTitle, children, className }: BoardProps): JSX.Element => {
+export const Board = ({ boardHeader, children, className }: BoardProps): JSX.Element => {
 	return (
 		<BoardView className={`board${className ? ` ${className}` : ''}`}>
-			<header>
-				<Icon type='ssh' padRight />
-				<h2>{boardTitle}</h2>
-			</header>
+			<header>{boardHeader}</header>
 			<main>{children}</main>
 		</BoardView>
 	)

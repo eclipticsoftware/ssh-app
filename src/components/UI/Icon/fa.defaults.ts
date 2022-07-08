@@ -15,6 +15,7 @@ const iconLibAlerts = {
 	bellAlert: ['fal', 'bell-exclamation'],
 	pending: ['fal', 'hourglass-half'],
 	ssh: ['fal', 'thunderstorm'],
+	circle: ['fal', 'circle'],
 }
 
 const iconLibDirectional = {

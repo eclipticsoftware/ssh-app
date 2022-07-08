@@ -7,14 +7,12 @@ import { constants, userSettingsPath } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
-import { Board } from '../../UI/Board'
 import { ErrorBlock, ErrorBlockErr } from '../../UI/ErrorBlock'
 import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.file'
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
 import { FormikText } from '../../UI/Formik/Formik.fields/Formik.text'
 import { FormikForm } from '../../UI/Formik/Formik.form'
 import Spinner from '../../UI/Spinner/Spinner'
-import { ConnectionStatus } from '../Main.screen'
 
 export const connectFormStyles = css`
 	.submit-btn {
@@ -34,11 +32,9 @@ const validationSchema = Yup.object().shape({
 })
 
 export type ConnectFormProps = {
-	onConnect: () => void
-	onError: (error: ErrorBlockErr) => void
-	status: ConnectionStatus | null
+	unknownErr: string | null
 }
-export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): JSX.Element => {
+export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 	const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
 	const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
@@ -71,17 +67,9 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 				},
 			})
 			console.log('connection res: ', res)
-
-			if (granted)
-				sendNotification({
-					title: 'SUCCESS',
-					body: 'Connected!',
-				})
-			onConnect()
 		} catch (err: any) {
 			console.log('Connection error: ', err)
 			setConnectionErr(err)
-			onError(err)
 		}
 	}
 
@@ -89,27 +77,25 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 
 	return (
 		<ConnectFormView>
-			<Board boardTitle='NNR SSH CLIENT'>
-				{loading ? (
-					<Spinner />
-				) : (
-					<FormikForm
-						initialValues={initialVals}
-						onSubmit={onSubmit}
-						validationSchema={validationSchema}
-						enableReinitialize
-					>
-						{status ? <ErrorBlock error={'Connection Dropped'} /> : null}
-						<FormikText name='host' config={{ label: 'IP Address (host)', isReq: true }} />
-						<FormikText name='user' config={{ label: 'Username (user)', isReq: true }} />
-						<FormikText name='port' config={{ label: 'Local Port (to forward to)', isReq: true }} />
-						<FormikSelectFile name='keyPath' config={{ label: 'SSH Key', isReq: true }} />
-						<hr />
-						{error ? <ErrorBlock error={error} /> : null}
-						<FormikSubmitBtn>Connect</FormikSubmitBtn>
-					</FormikForm>
-				)}
-			</Board>
+			{loading ? (
+				<Spinner />
+			) : (
+				<FormikForm
+					initialValues={initialVals}
+					onSubmit={onSubmit}
+					validationSchema={validationSchema}
+					enableReinitialize
+				>
+					{unknownErr ? <ErrorBlock error={unknownErr} /> : null}
+					<FormikText name='host' config={{ label: 'IP Address (host)', isReq: true }} />
+					<FormikText name='user' config={{ label: 'Username (user)', isReq: true }} />
+					<FormikText name='port' config={{ label: 'Local Port (to forward to)', isReq: true }} />
+					<FormikSelectFile name='keyPath' config={{ label: 'SSH Key', isReq: true }} />
+					<hr />
+					{error ? <ErrorBlock error={error} /> : null}
+					<FormikSubmitBtn>Connect</FormikSubmitBtn>
+				</FormikForm>
+			)}
 		</ConnectFormView>
 	)
 }

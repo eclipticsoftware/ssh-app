@@ -12,6 +12,12 @@ export const constants = {
 	// error listener name
 	tunnelErr: 'tunnel_error',
 
-	// errors
+	// success listener name
+	tunnelSuccess: 'tunnel_connected',
+
+	// retrying response
 	retrying: 'RETRYING',
+
+	// dropped response
+	dropped: 'DROPPED',
 }
