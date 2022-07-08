@@ -1,4 +1,4 @@
-import { listen } from '@tauri-apps/api/event'
+import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { ConnectForm, ConnectFormProps } from '../Connect.form'
@@ -48,9 +48,17 @@ export const MainScreen = (): JSX.Element => {
 	}
 
 	useEffect(() => {
-		listen('tunnel_error', error => {
+		let unlisten: UnlistenFn
+
+		listen('tunnel_error', e => {
+			const error = e.payload
+
 			setStatus('Dropped')
-		})
+		}).then(handler => (unlisten = handler))
+
+		return () => {
+			if (typeof unlisten === 'function') unlisten()
+		}
 	}, [])
 
 	return (

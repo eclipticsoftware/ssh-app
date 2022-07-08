@@ -99,8 +99,8 @@ export const ConnectForm = ({ onConnect, onError, status }: ConnectFormProps): J
 						enableReinitialize
 					>
 						{status ? <ErrorBlock error={'Connection Dropped'} /> : null}
-						<FormikText name='host' config={{ label: 'IP Address', isReq: true }} />
-						<FormikText name='user' config={{ label: 'Username', isReq: true }} />
+						<FormikText name='host' config={{ label: 'IP Address (host)', isReq: true }} />
+						<FormikText name='user' config={{ label: 'Username (user)', isReq: true }} />
 						<FormikText name='port' config={{ label: 'Local Port (to forward to)', isReq: true }} />
 						<FormikSelectFile name='keyPath' config={{ label: 'SSH Key', isReq: true }} />
 						<hr />
