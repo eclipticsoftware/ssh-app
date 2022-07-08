@@ -2,6 +2,7 @@ import styled, { css } from 'styled-components'
 import { ConnectionStatus } from '../../Screens/Main.screen'
 import { Icon } from '../Icon'
 import { IconType } from '../Icon/fa.defaults'
+import { Spinner } from '../Spinner'
 
 export const boardHeaderStyles = css`
 	display: flex;
@@ -18,18 +19,22 @@ export const boardHeaderStyles = css`
 		padding: none;
 		margin: none;
 		font-size: 1.5rem;
+		margin-right: 1.5rem;
 	}
 
 	.status-info {
 		margin-left: auto;
 		padding: 0.5em 1em;
-		border: solid 1px ${props => props.theme.colors.grey.val};
+		border: solid 1px ${props => props.theme.colors.lightGrey.val};
+		background: ${props => props.theme.colors.black.opacity(40).val};
+		border-radius: 5px;
 
 		h5 {
 			margin: 0;
 			padding: 0;
 			margin-bottom: 8px;
-			color: ${props => props.theme.colors.lightGrey.val};
+			color: ${props => props.theme.colors.grey.val};
+			font-weight: normal;
 		}
 	}
 	.status {
@@ -38,15 +43,27 @@ export const boardHeaderStyles = css`
 		color: ${props => props.theme.colors.white.val};
 
 		.msg {
-			font-style: 'italic';
 			font-size: 0.9rem;
+			display: flex;
+			align-items: center;
+
+			.spinner {
+				margin-left: 0.5em;
+				height: auto;
+				span {
+					& > span {
+						height: 5px !important;
+						width: 5px !important;
+					}
+				}
+			}
 		}
 
 		&.__err {
-			color: ${props => props.theme.colors.err.val};
+			color: ${props => props.theme.colors.err.bright(2).val};
 		}
 		&.__ok {
-			color: ${props => props.theme.colors.ok.val};
+			color: ${props => props.theme.colors.ok.bright(2).val};
 		}
 	}
 `
@@ -72,8 +89,8 @@ const parseStatus = (status: ConnectionStatus): ParsedStatus =>
 		  }
 		: status === 'RETRYING'
 		? {
-				msg: 'Reconnecting...',
-				icon: 'err',
+				msg: 'Reconnecting',
+				icon: 'alert',
 		  }
 		: {
 				msg: 'Error Connecting',
@@ -87,17 +104,23 @@ export const BoardHeader = ({ status }: BoardHeaderProps): JSX.Element => {
 	const parsedStatus = status && parseStatus(status)
 	const { msg, icon } = parsedStatus || {}
 
-	const classStatus = status === 'OK' ? 'ok' : status === 'ERROR' ? 'err' : 'generic'
+	const classStatus =
+		status === 'OK' ? 'ok' : status === 'ERROR' || status === 'DROPPED' ? 'err' : 'generic'
 	return (
 		<BoardHeaderView>
 			<Icon type='ssh' />
-			<h2>NNR SSH APP</h2>
+			<h2>NNR SSH CLIENT</h2>
 			<div className='status-info'>
 				<h5>Status:</h5>
 
 				<div className={`status __${classStatus}`}>
 					<Icon type={icon || 'circle'} padRight />
-					<span className='msg'>{msg || 'Disconnected'}</span>
+					<div className='msg'>
+						{msg || 'Disconnected'}
+						{status === 'RETRYING' ? (
+							<Spinner type='dots' noBg isOverlay={false} height='sm' color='#fff' />
+						) : null}
+					</div>
 				</div>
 			</div>
 		</BoardHeaderView>

@@ -12,7 +12,7 @@ import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.fi
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
 import { FormikText } from '../../UI/Formik/Formik.fields/Formik.text'
 import { FormikForm } from '../../UI/Formik/Formik.form'
-import Spinner from '../../UI/Spinner/Spinner'
+import { Spinner } from '../../UI/Spinner'
 
 export const connectFormStyles = css`
 	.submit-btn {

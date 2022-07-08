@@ -15,7 +15,7 @@ export const themeConfig: ThemeOptions = {
 
 	fonts: {
 		textFamily: 'PT Sans Caption, sans-serif',
-		titleFamily: 'Oswald, sans-serif',
+		titleFamily: 'PT Sans Caption, sans-serif',
 	},
 
 	// breaks: {

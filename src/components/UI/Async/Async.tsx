@@ -1,7 +1,7 @@
-import {ReactNode} from 'react'
+import { ReactNode } from 'react'
 import styled from 'styled-components'
-import {ErrorBlock} from '../ErrorBlock'
-import Spinner from '../Spinner/Spinner'
+import { ErrorBlock } from '../ErrorBlock'
+import { Spinner } from '../Spinner'
 
 export const AsyncView = styled.div``
 

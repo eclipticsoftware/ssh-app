@@ -31,8 +31,8 @@ const MainScreenView = styled.div`
 export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR'
 
 export const MainScreen = (): JSX.Element => {
-	const [status, setStatus] = useState<ConnectionStatus | null>(null)
-	const showConnectionScreen = status === 'OK' || status === 'RETRYING'
+	const [status, setStatus] = useState<ConnectionStatus | null>('DROPPED')
+	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
 	const [unknownErr, setErr] = useState<string | null>(null)
 
 	const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
@@ -72,7 +72,7 @@ export const MainScreen = (): JSX.Element => {
 	return (
 		<MainScreenView>
 			<Board boardHeader={<BoardHeader status={status} />}>
-				{showConnectionScreen ? (
+				{showConnectedScreen ? (
 					<ConnectedScreen status={status} onDisconnect={onDisconnect} />
 				) : (
 					<ConnectForm unknownErr={unknownErr} />
