@@ -31,7 +31,7 @@ const MainScreenView = styled.div`
 export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR'
 
 export const MainScreen = (): JSX.Element => {
-	const [status, setStatus] = useState<ConnectionStatus | null>('DROPPED')
+	const [status, setStatus] = useState<ConnectionStatus | null>(null)
 	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
 	const [unknownErr, setErr] = useState<string | null>(null)
 
