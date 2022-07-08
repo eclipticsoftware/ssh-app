@@ -1,6 +1,6 @@
 import {createThemeGlobalStyles} from "@eclo/mode";
 import {ThemeProvider} from "styled-components";
-import {ConnectForm} from "./components/Screens/Connect.form";
+import {MainScreen} from "./components/Screens/Main.screen";
 import {GlobalStyles} from "./theme/globalStyles";
 import {theme} from "./theme/theme";
 
@@ -16,7 +16,7 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <GlobalStyles globalStyles={globalStyles} />
-      <ConnectForm />
+      <MainScreen />
     </ThemeProvider>
   );
 }

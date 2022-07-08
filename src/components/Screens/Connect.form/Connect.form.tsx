@@ -54,11 +54,13 @@ const validationSchema = Yup.object().shape({
 })
 
 export type ConnectFormProps = {
-  
+  onConnect: () => void
+  onError: (error: ErrorBlockErr) => void
 }
-export const ConnectForm = (): JSX.Element => {
+export const ConnectForm = ({onConnect, onError}: ConnectFormProps): JSX.Element => {
   const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
   const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
+  const [isConnected, setConnected] = useState(false, 'isConnected')
 
   const {loading, settings} = useSettings()
   const {granted} = useGetNotificationPermission()
@@ -79,8 +81,15 @@ export const ConnectForm = (): JSX.Element => {
     try {
       const res = await invoke('start_tunnel', vals)
       console.log('res: ', res)
+
+      if(granted) sendNotification({
+        title: 'SUCCESS',
+        body: 'Connected!',
+      })
+      onConnect()
     } catch (err: any) {
       setConnectionErr(err)
+      onError(err)
     }
   }
 
