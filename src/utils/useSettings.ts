@@ -1,5 +1,5 @@
 import {BaseDirectory, readTextFile} from "@tauri-apps/api/fs"
-import {useEffect, useState} from "react"
+import {useEffect, useRef, useState} from "react"
 import {userSettingsPath} from "../app.config"
 
 
@@ -14,6 +14,7 @@ type UserSettings = typeof defaultSettings
 export const useSettings = () => {
   const [settings, setSettings] = useState<UserSettings>(defaultSettings)
   const [loading, setLoading] = useState(false)
+  const settingsLoaded = useRef(false)
 
   useEffect(() => {
     const getFile = async () => {
@@ -31,6 +32,7 @@ export const useSettings = () => {
             ...state,
             ...file
           }))
+          settingsLoaded.current = true
         }
         setLoading(false)
       } catch (err) {
@@ -39,7 +41,7 @@ export const useSettings = () => {
       }
       
     }
-    if(!loading && !settings) getFile()
+    if(!loading && !settingsLoaded.current) getFile()
   },[loading, settings])
 
   return {settings, loading}

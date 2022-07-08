@@ -17,8 +17,12 @@
         "save": true
       },
       "fs": {
-        "all": true,
+        "writeFile": true,
+        "readFile": true,
         "scope": ["$HOME","$HOME/*"]
+      },
+      "notification": {
+        "all": true
       }
     },
     "bundle": {

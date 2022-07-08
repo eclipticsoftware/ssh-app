@@ -1,7 +1,10 @@
 import {BaseDirectory, writeTextFile} from '@tauri-apps/api/fs'
+import {sendNotification} from '@tauri-apps/api/notification'
+import {invoke} from '@tauri-apps/api/tauri'
 import styled, {css} from 'styled-components'
 import * as Yup from 'yup'
 import {userSettingsPath} from '../../../app.config'
+import {useGetNotificationPermission} from '../../../utils/useGetNotificationPermission'
 import {useSettings} from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
 import {ErrorBlock, ErrorBlockErr} from '../../UI/ErrorBlock'
@@ -53,23 +56,29 @@ const validationSchema = Yup.object().shape({
 export type ConnectFormProps = {
   
 }
-export const ConnectForm = ({}: ConnectFormProps): JSX.Element => {
+export const ConnectForm = (): JSX.Element => {
   const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
   const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
   const {loading, settings} = useSettings()
+  const {granted} = useGetNotificationPermission()
 
   const initialVals = settings
   
   const onSubmit = async (vals: typeof initialVals) => {
     try {
       await writeTextFile({path: userSettingsPath, contents: JSON.stringify(vals)}, {dir: BaseDirectory.Home})
+
+      if(granted) sendNotification({
+        title: 'SUCCESS',
+        body: 'Settings Saved!',
+      })
     } catch (err: any) {
       setSettingsErr(err)
     }
     try {
-      // TODO: send connection event
-
+      const res = await invoke('start_tunnel', vals)
+      console.log('res: ', res)
     } catch (err: any) {
       setConnectionErr(err)
     }
@@ -77,6 +86,7 @@ export const ConnectForm = ({}: ConnectFormProps): JSX.Element => {
 
   const error = settingsSaveErr || connectionErr
 
+  console.log('initial values: ', initialVals)
   return (
     <ConnectFormView>
       <div className="board">
@@ -86,6 +96,7 @@ export const ConnectForm = ({}: ConnectFormProps): JSX.Element => {
         initialValues={initialVals}
         onSubmit={onSubmit}
         validationSchema={validationSchema}
+        enableReinitialize
       >
         <FormikText name='host' config={{label: 'IP Address', isReq: true}} />
         <FormikText name='user' config={{label: 'Username', isReq: true}} />

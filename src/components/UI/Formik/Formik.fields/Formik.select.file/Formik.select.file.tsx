@@ -43,6 +43,7 @@ export const FormikSelectFile = ({name, config}: FormikSelectFileProps): JSX.Ele
 
     if(path) setValue(path as string)
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[touched])
 
   return (
