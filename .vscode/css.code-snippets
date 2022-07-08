@@ -1,0 +1,75 @@
+{
+	"EcloMode Theme": {
+		"prefix": "theme",
+		"body": ["${props => props.theme.$1};"],
+		"description": "Eclomode Theme"
+	},
+	"EcloMode Theme media": {
+		"prefix": "media",
+		"body": ["${props => props.theme.media.$1} {", "  $2", "}"],
+		"description": "EcloMode Theme media"
+	},
+	"EcloMode Theme media mobile": {
+		"prefix": "mobile",
+		"body": ["${props => props.theme.media.mobile} {", "  $1", "}"],
+		"description": "EcloMode Theme media mobile"
+	},
+	"EcloMode Theme media tablet": {
+		"prefix": "tablet",
+		"body": ["${props => props.theme.media.tablet} {", "  $1", "}"],
+		"description": "EcloMode Theme media tablet"
+	},
+	"EcloMode Theme media sdesk": {
+		"prefix": "sdesk",
+		"body": ["${props => props.theme.media.sdesk} {", "  $1", "}"],
+		"description": "EcloMode Theme media sdesk"
+	},
+	"EcloMode Theme media ldesk": {
+		"prefix": "ldesk",
+		"body": ["${props => props.theme.media.ldesk} {", "  $1", "}"],
+		"description": "EcloMode Theme media ldesk"
+	},
+	"EcloMode Theme colors": {
+		"prefix": "colors",
+		"body": ["${props => props.theme.colors.$1.val};"],
+		"description": "EcloMode Theme colors"
+	},
+	"EcloMode Theme color": {
+		"prefix": "colr",
+		"body": ["${props => props.theme.color($1).val};"],
+		"description": "EcloMode Theme color function"
+	},
+	"EcloMode Theme gutter": {
+		"prefix": "gutter",
+		"body": ["${props => props.theme.sizes.gutter.$1}"],
+		"description": "EcloMode Theme gutter"
+	},
+	"Top gradient": {
+		"prefix": "topgrad",
+		"body": [
+			"background: linear-gradient(to bottom,  ${props => props.theme.colors.$1} 0%, ${props => props.theme.colors.$2} 100%);"
+		],
+		"description": "Top to bottom gradient"
+	},
+	"Left gradient": {
+		"prefix": "leftgrad",
+		"body": [
+			"background: linear-gradient(to right,  ${props => props.theme.colors.$1} 0%, ${props => props.theme.colors.$2} 100%);"
+		],
+		"description": "Left to right gradient"
+	},
+	"Right gradient": {
+		"prefix": "rightgrad",
+		"body": [
+			"background: linear-gradient(to left,  ${props => props.theme.colors.$1} 0%, ${props => props.theme.colors.$2} 100%);"
+		],
+		"description": "Right to left gradient"
+	},
+	"Bottom gradient": {
+		"prefix": "botgrad",
+		"body": [
+			"background: linear-gradient(to top,  ${props => props.theme.colors.$1} 0%, ${props => props.theme.colors.$2} 100%);"
+		],
+		"description": "Bottom to Top gradient"
+	}
+}

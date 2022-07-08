@@ -1,0 +1,129 @@
+{
+	"comment_title": {
+		"prefix": "comTitle",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["/**", "*  $1", "* */"],
+		"description": "regular comment title"
+	},
+	"comment_title_big": {
+		"prefix": "comTitleBig",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": [
+			"/*",
+			" =================================================",
+			"  $1",
+			" =================================================",
+			"* */"
+		],
+		"description": "big comment title"
+	},
+	"arrow_func": {
+		"prefix": "arw",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["($1) => {$2}"],
+		"description": "arrow function"
+	},
+	"async_arrow_func": {
+		"prefix": "asf",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["async ($1) => {$2}"],
+		"description": "async arrow function"
+	},
+	"arrow_func_single_return": {
+		"prefix": "ars",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["($1) => ($2)"],
+		"description": "arrow function with single return statement"
+	},
+	"yup_import": {
+		"prefix": "impyup",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["import * as Yup from 'yup'"],
+		"description": "yup import statement"
+	},
+	"react_import": {
+		"prefix": "impre",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["import React from 'react'"],
+		"description": "React import statement"
+	},
+	"export_named_module": {
+		"prefix": "exn",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["export * from './$1'"],
+		"description": "export named modules"
+	},
+	"export_default": {
+		"prefix": "exd",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["export {default} from './$1'"],
+		"description": "export default module"
+	},
+	"styled_components_import": {
+		"prefix": "impst",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["import styled from 'styled-components/macro'"],
+		"description": "styled-components import statement"
+	},
+	"react_ts_func_bootstrap": {
+		"prefix": "reaf",
+		"scope": "typescriptreact",
+		"body": [
+			"import React from 'react'",
+			"import styled, { css } from 'styled-components'",
+			"\t",
+			"export const $2Styles = css`",
+			"\t",
+			"`",
+			"\t",
+			"const $1View = styled.$3`",
+			"\t${ $2Styles }",
+			"`",
+			"\t",
+			"export type $1Props = {",
+			"\t",
+			"}",
+			"export const $1 = ({}: $1Props): JSX.Element => {",
+			"\t",
+			"\treturn (",
+			"\t\t<$1View>",
+			"\t\t\t",
+			"\t\t</$1View>",
+			"\t)",
+			"}"
+		],
+		"description": "TS react functional component bootstrap"
+	},
+	"react_ts_styles_file_bootstrap": {
+		"prefix": "sc-styles",
+		"scope": "typescriptreact",
+		"body": [
+			"import {css} from 'styled-components/macro'",
+			"  ",
+			"export type $1Props = {",
+			"  ",
+			"}",
+			"  ",
+			"export const $1Styles = css<$1Props>`",
+			"  $3",
+			"`"
+		],
+		"description": "TS react styled components file bootstrap"
+	},
+	"react_fragment": {
+		"prefix": "<>",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["<>", "  $1", "</>"],
+		"description": "react fragment"
+	},
+	"disable_useeffect": {
+		"prefix": "disable",
+		"scope": "typescript,javascript,typescriptreact,javascriptreact",
+		"body": ["// eslint-disable-next-line react-hooks/exhaustive-deps"]
+	},
+	"class_name": {
+		"prefix": "cname",
+		"scope": "typescriptreact,javascriptreact",
+		"body": ["className={`$1${ className ? ` ${ className }` : ''}`}"]
+	}
+}

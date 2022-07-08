@@ -1,25 +1,23 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import {createThemeGlobalStyles} from "@eclo/mode";
+import {ThemeProvider} from "styled-components";
+import {ConnectForm} from "./components/Screens/Connect.form";
+import {GlobalStyles} from "./theme/globalStyles";
+import {theme} from "./theme/theme";
 
-function App() {
+const App = () => {
+
+	const globalStyles = createThemeGlobalStyles(theme, {
+		include: {
+			cssReset: true,
+			fluidHeadings: true,
+		},
+	})
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <GlobalStyles globalStyles={globalStyles} />
+      <ConnectForm />
+    </ThemeProvider>
   );
 }
 
