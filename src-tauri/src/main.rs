@@ -11,6 +11,21 @@ use serde::Deserialize;
 use tauri::command;
 use tauri::{window::Window, State};
 
+fn main() {
+    let context = Context::new();
+
+    let ctx_win_capt = context.clone();
+    tauri::Builder::default()
+        .on_page_load(move |window, _| {
+            println!("Setting window");
+            ctx_win_capt.0.lock().unwrap().window = Some(window);
+        })
+        .manage(context)
+        .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
 struct ContextInner {
     proc: Option<JoinHandle<()>>,
     window: Option<Window>,
@@ -28,6 +43,18 @@ impl ContextInner {
 }
 
 struct Context(Arc<Mutex<ContextInner>>);
+
+impl Context {
+
+    fn new() -> Self {
+        Context(Arc::new(Mutex::new(ContextInner::new())))
+    }
+
+    fn clone(&self) -> Self {
+        Context(self.0.clone())
+    }
+    
+}
 
 #[derive(Deserialize, Debug)]
 struct UserSettings<'a> {
@@ -86,19 +113,4 @@ fn end_tunnel(proc: State<'_, Context>) {
         println!("Stopping the thread");
         proc.run = false;
     }
-}
-
-fn main() {
-    let context = Context(Arc::new(Mutex::new(ContextInner::new())));
-
-    let ctx_win_capt = Context(context.0.clone());
-    tauri::Builder::default()
-        .on_page_load(move |window, _| {
-            println!("Setting window");
-            ctx_win_capt.0.lock().unwrap().window = Some(window);
-        })
-        .manage(context)
-        .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }
