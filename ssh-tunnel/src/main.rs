@@ -1,27 +1,35 @@
 use std::{thread, time::Duration};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::io::Read;
 
 use clap::{Parser};
 
-use ssh_tunnel::{self, start_ssh_tunnel};
-use ssh_tunnel::SshConfig;
+use ssh_tunnel;
+use ssh_tunnel::{SshConfig, SshStatus};
 
 fn main() -> Result<(), i32> {
 
     let args = Args::parse();
     let config = args.to_config();
-    let tun_proc = start_ssh_tunnel(config).map_err(
+    let (tun_proc, hndl) = ssh_tunnel::start_and_watch_ssh_tunnel(config, move |status| {
+        println!("Status: {:?}", status);
+        match status {
+            SshStatus::Dropped => println!("Dropped connection"),
+            SshStatus::Unreachable => println!("Unreachable"),
+            SshStatus::Exited => println!("Exited cleanly"),
+            _ => println!("Unsupported status: {:?}", status)
+        }
+    }).map_err(
         |err| {
             println!("Failed to create tunnel: {:?}", err);
             1
         }
     )?;
 
-    let proc_hdlr = tun_proc.clone();
     ctrlc::set_handler(move || {
         println!("\n\nClosing tunnel");
-        let mut tun_proc = proc_hdlr.lock().unwrap();
+        let mut tun_proc = tun_proc.lock().unwrap();
         match tun_proc.kill() {
             Ok(_) => {
                 println!("killed");
@@ -29,7 +37,6 @@ fn main() -> Result<(), i32> {
             Err(err) => {println!("Not killed: {err}")}
         }
 
-        //std::process::exit(0);
     }).map_err(
         |err| {
             println!("Failed to set handler: {:?}", err);
@@ -37,38 +44,11 @@ fn main() -> Result<(), i32> {
         }
     )?;
 
-
-    let mut stderr;
-    {
-        stderr = tun_proc.lock().unwrap().stderr.take().unwrap();
+    let (ssh_status, exit_status) = hndl.join().unwrap();
+    match ssh_status {
+        SshStatus::Exited => Ok(()),
+        _ => Err(exit_status)
     }
-    
-
-    let mut exit_status = 0;
-    loop {
-        let mut tun_proc = tun_proc.lock().unwrap();
-        match tun_proc.try_wait() {
-            Ok(Some(status)) => {
-                println!("exited with {status}");
-                exit_status = status.code().unwrap();
-                break;
-            },
-            Ok(None) => (),
-            Err(e) => {
-                println!("error attempting to wait: {e}");
-                exit_status = 100;
-                break;
-            }
-        }
-        thread::sleep(Duration::from_secs(1));
-    }
-
-    let mut error_msg = String::new();
-    stderr.read_to_string(&mut error_msg).unwrap();
-
-    println!("Error message: {error_msg}");
-
-    Err(exit_status)
 }
 
 

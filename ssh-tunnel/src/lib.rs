@@ -1,17 +1,17 @@
-use std::io::{Result, Read};
-use std::{thread, time::Duration};
+use std::io::{Read, Result};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::{thread, time::Duration};
 
 use regex::Regex;
 
 pub type SshTunnel = Arc<Mutex<Child>>;
 
-pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F)
-where F: FnOnce(SshStatus) + Send
+pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, i32)
+where
+    F: FnOnce(SshStatus) + Send,
 {
-    //let mut exit_status = 0;
-
+    let mut exit_status = 0;
     let mut stderr;
     {
         stderr = tunnel.lock().unwrap().stderr.take().unwrap();
@@ -22,13 +22,13 @@ where F: FnOnce(SshStatus) + Send
         match tunnel.try_wait() {
             Ok(Some(status)) => {
                 println!("exited with {status}");
-                //exit_status = status.code().unwrap();
+                exit_status = status.code().unwrap();
                 break;
-            },
+            }
             Ok(None) => (),
             Err(e) => {
                 println!("error attempting to wait: {e}");
-                //exit_status = 100;
+                exit_status = 100;
                 break;
             }
         }
@@ -37,12 +37,14 @@ where F: FnOnce(SshStatus) + Send
 
     let mut err_msg = String::new();
     stderr.read_to_string(&mut err_msg).unwrap();
-    
-    callback(parse_stderr(&err_msg))
+
+    println!("Error: {}", err_msg);
+    let ssh_status = parse_stderr(&err_msg);
+    callback(ssh_status.clone());
+    (ssh_status, exit_status)
 }
 
-pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel>
-{
+pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel> {
     let proc = Command::new("ssh")
         .args(config.to_args())
         .stderr(Stdio::piped())
@@ -52,19 +54,21 @@ pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel>
     Ok(tunnel)
 }
 
-pub fn start_and_watch_ssh_tunnel<F>(config: SshConfig, callback: F) -> Result<SshTunnel>
-where F: FnOnce(SshStatus) + Send + 'static
+pub fn start_and_watch_ssh_tunnel<F>(
+    config: SshConfig,
+    callback: F,
+) -> Result<(SshTunnel, thread::JoinHandle<(SshStatus, i32)>)>
+where
+    F: FnOnce(SshStatus) + Send + 'static,
 {
     let tunnel = start_ssh_tunnel(config)?;
     let watched_tunnel = tunnel.clone();
-    std::thread::spawn(move || {
-        ssh_watch_loop(watched_tunnel, callback);
-    });
+    let handle = std::thread::spawn(move || ssh_watch_loop(watched_tunnel, callback));
 
-    Ok(tunnel)
+    Ok((tunnel, handle))
 }
 
-fn parse_stderr(msg: &String) -> SshStatus {
+fn parse_stderr(msg: &str) -> SshStatus {
     if check_dropped(msg) {
         SshStatus::Dropped
     } else if check_unreachable(msg) {
@@ -74,15 +78,16 @@ fn parse_stderr(msg: &String) -> SshStatus {
     }
 }
 
-fn check_dropped(msg: &String) -> bool {
+fn check_dropped(msg: &str) -> bool {
     let re = Regex::new("Timeout, server .* not responding").unwrap();
-    re.is_match(&msg)
+    re.is_match(msg)
 }
 
-fn check_unreachable(msg: &String) -> bool {
+fn check_unreachable(msg: &str) -> bool {
     msg.contains("Network is unreachable")
 }
 
+#[derive(Debug, Clone)]
 pub enum SshStatus {
     Running,
     Dropped,
@@ -102,7 +107,6 @@ pub struct SshConfig {
 }
 
 impl SshConfig {
-
     pub fn new(
         end_host: &str,
         username: &str,
