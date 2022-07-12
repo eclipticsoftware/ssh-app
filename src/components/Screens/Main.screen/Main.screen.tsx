@@ -45,22 +45,29 @@ export const MainScreen = (): JSX.Element => {
 		let cleanupErrListener: UnlistenFn
 		let cleanupSuccessListener: UnlistenFn
 
-		listen(constants.tunnelErr, e => {
-			const msg = e.payload
-			if (msg === constants.retrying) setStatus('RETRYING')
-			else {
+		listen(constants.tunnelStatus, e => {
+			if (e.payload === constants.connected) {
+				setStatus('OK')
+				if (granted)
+					sendNotification({
+						title: 'SUCCESS',
+						body: 'Connected!',
+					})
+			} else if (e.payload === constants.dropped) {
 				setStatus('DROPPED')
-				if (msg !== constants.dropped) setErr(msg as string)
+				if (granted)
+					sendNotification({
+						title: 'ERROR',
+						body: 'Connection Dropped!',
+					})
+			} else if (e.payload === constants.retrying) {
+				setStatus('RETRYING')
+				if (granted)
+					sendNotification({
+						title: 'INTERRUPTION',
+						body: 'Connection Interrupted!',
+					})
 			}
-		}).then(handler => (cleanupErrListener = handler))
-
-		listen(constants.tunnelSuccess, () => {
-			setStatus('OK')
-			if (granted)
-				sendNotification({
-					title: 'SUCCESS',
-					body: 'Connected!',
-				})
 		}).then(handler => (cleanupSuccessListener = handler))
 
 		return () => {

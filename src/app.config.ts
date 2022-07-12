@@ -3,29 +3,42 @@ export const canPrint = true
 export const userSettingsPath = 'eclo-ssh-client-user-settings.json'
 
 export const constants = {
+	/**
+	 *  Initial Connection Invocation
+	 * */
 	// start ssh connection invokation name
 	startTunnel: 'start_tunnel',
 
+	// connection invocation response
+	// server could not be found (bad IP address)
+	unreachable: 'UNREACHABLE',
+
+	// connection invocation response
+	// successfully connected
+	success: 'SUCCESS',
+
+	/**
+	 *  Disconnect Invocation
+	 * */
 	// end ssh connection invokation name
 	endTunnel: 'end_tunnel',
 
-	// error listener name
-	tunnelErr: 'tunnel_error',
+	/**
+	 *  Connection Status Listener
+	 * */
+	// status listener name
+	tunnelStatus: 'tunnel_status',
 
-	// success listener name
-	tunnelSuccess: 'tunnel_connected',
+	// status listener response
+	connected: 'CONNECTED',
 
-	// retrying response
+	// status listener response
 	retrying: 'RETRYING',
 
-	// dropped response
+	// status listener response
 	dropped: 'DROPPED',
 
-	// error during initial connection
+	// connection invocation response
 	// server exists but credentials were bad
 	denied: 'DENIED',
-
-	// error during initial connection
-	// server could not be found (bad IP address)
-	unreachable: 'UNREACHABLE',
 }
