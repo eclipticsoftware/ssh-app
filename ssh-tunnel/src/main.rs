@@ -87,7 +87,8 @@ impl Args {
             &self.to_host,
             self.local_port,
             self.remote_port,
-            self.keepalive
+            self.keepalive,
+            &["-T"]
         )
     }
     

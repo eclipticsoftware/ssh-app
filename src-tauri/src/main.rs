@@ -5,11 +5,13 @@
 
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::{thread, time::Duration};
+//use std::{thread, time::Duration};
 
 use serde::Deserialize;
 use tauri::command;
 use tauri::{window::Window, State};
+
+use ssh_tunnel::{SshTunnel, SshConfig, SshStatus, ExitStatus};
 
 fn main() {
     let context = Context::new();
@@ -27,17 +29,17 @@ fn main() {
 }
 
 struct ContextInner {
-    proc: Option<JoinHandle<()>>,
+    tunnel: Option<SshTunnel>,
+    //handle: Option<JoinHandle<(SshStatus, ExitStatus)>>,
     window: Option<Window>,
-    run: bool,
 }
 
 impl ContextInner {
     fn new() -> Self {
         ContextInner {
-            proc: None,
+            tunnel: None,
+            //handle: None,
             window: None,
-            run: false,
         }
     }
 }
@@ -64,53 +66,117 @@ struct UserSettings<'a> {
     key_path: &'a str,
 }
 
-#[command]
-fn start_tunnel(settings: UserSettings<'_>, proc: State<'_, Context>) {
-    println!("Starting tunnel: {:?}", settings);
-    let proc_thread = proc.0.clone();
-    let mut proc = proc.0.lock().unwrap();
-    proc.run = true;
-    proc.proc = Some(thread::spawn(move || {
-        let mut checks = 300;
-        let mut dropped = true;
-        while checks > 0 {
-            thread::sleep(Duration::from_millis(100));
-            if !proc_thread.lock().unwrap().run {
-                println!("Stopping early");
-                dropped = false;
-                break;
-            }
-            checks -= 1;
-        }
-        if dropped {
-            let mut proc = proc_thread.lock().unwrap();
-            proc.run = false;
-            proc.window
-                .as_ref()
-                .unwrap()
-                .emit("tunnel_error", Some("DROPPED".to_string()))
-                .expect("emit drop failed");
-        }
-        println!("Finishing tunnel");
-    }));
+impl UserSettings<'_> {
 
-    if proc.window.is_none() {
-        println!("Window doesn't exist!");
-    } else {
-        proc.window
-            .as_ref()
-            .unwrap()
-            .emit("tunnel_connected", Some("Connected".to_string()))
-            .expect("emit conn failed");
+    fn to_config(&self) -> SshConfig {
+        SshConfig::new(
+            self.host,
+            self.user,
+            self.key_path,
+            "localhost",
+            self.port.parse().unwrap(),
+            5432,
+            10,
+            &["-t", "-t"]
+        )
     }
 }
 
 #[command]
-fn end_tunnel(proc: State<'_, Context>) {
+fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
+
+    println!("Starting tunnel: {:?}", settings);
+    let context_thread = context.0.clone();
+    let mut ctxt = context.0.lock().unwrap();
+    let result = ssh_tunnel::start_and_watch_ssh_tunnel(
+        settings.to_config(),
+        move |status| {
+            let ctxt = context_thread.lock().unwrap();
+            println!("Status: {:?}", status);
+            match status {
+                SshStatus::Dropped => {
+                    println!("Dropped connection");
+                    ctxt.window
+                        .as_ref()
+                        .unwrap()
+                        .emit("tunnel_error", Some("DROPPED".to_string()))
+                        .expect("emit drop failed");
+                },
+                SshStatus::Unreachable => {
+                    println!("Unreachable");
+                    ctxt.window
+                        .as_ref()
+                        .unwrap()
+                        .emit("tunnel_error", Some("UNREACHABLE".to_string()))
+                        .expect("emit unreachable failed");
+                },
+                SshStatus::Denied => {
+                    println!("Denied");
+                    ctxt.window
+                        .as_ref()
+                        .unwrap()
+                        .emit("tunnel_error", Some("DENIED".to_string()))
+                        .expect("emit denied failed");
+                },
+                SshStatus::Exited => {
+                    println!("Exited cleanly");
+                    ctxt.window
+                        .as_ref()
+                        .unwrap()
+                        .emit("tunnel_error", Some("EXIT".to_string()))
+                        .expect("emit eixt failed");
+                },
+                _ => {
+                    println!("Unsupported status: {:?}", status);
+                    ctxt.window
+                        .as_ref()
+                        .unwrap()
+                        .emit("tunnel_error", Some("ERROR".to_string()))
+                        .expect("emit exit failed");
+                }
+            }
+        });
+    
+    match result {
+        Ok((tnl, _hndl)) => {
+            println!("Tunnel is started");
+            ctxt.tunnel = Some(tnl);
+            //ctxt.handle = Some(hndl);
+        }
+        Err(status) => {
+            return match status {
+                SshStatus::Unreachable => "UNREACHABLE".to_string(),
+                SshStatus::Denied => "DENIED".to_string(),
+                SshStatus::ProcError(err) => format!("ERROR: {err}"),
+                _ => "ERROR: Unspecified".to_string()
+            }
+        }
+    }
+
+    if ctxt.window.is_none() {
+        println!("Window doesn't exist!");
+        "ERROR: Unspecified".to_string()
+    } else {
+        ctxt.window
+            .as_ref()
+            .unwrap()
+            .emit("tunnel_connected", Some("SUCCESS".to_string()))
+            .expect("emit conn failed");
+        "SUCCESS".to_string()
+    }
+}
+
+#[command]
+fn end_tunnel(context: State<'_, Context>) {
     println!("Killing tunnel");
-    let mut proc = proc.0.lock().unwrap();
-    if proc.run {
-        println!("Stopping the thread");
-        proc.run = false;
+    let context = context.0.lock().unwrap();
+    let mut tunnel = context.tunnel.as_ref().unwrap().lock().unwrap();
+    match tunnel.kill() {
+        Ok(_) => {
+            println!("killed");
+        },
+        Err(err) => {
+            println!("Not killed: {err}")
+        }
     }
 }

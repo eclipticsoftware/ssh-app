@@ -20,7 +20,7 @@ where
     }
 
     loop {
-        let mut tunnel = tunnel.lock().unwrap();
+        let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
         match tunnel.try_wait() {
             Ok(Some(status)) => {
                 println!("exited with {status}");
@@ -38,7 +38,7 @@ where
                 break;
             }
         }
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_millis(100));
     }
 
     let mut err_msg = String::new();
@@ -53,12 +53,16 @@ where
 pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel, SshStatus> {
     let mut proc = Command::new("ssh")
         .args(config.to_args())
+        .env_clear()
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn().map_err(|err| {
             SshStatus::ProcError(err.to_string())
         })?;
 
+
+    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
+    // or throw an error if it fails to happen
     let mut stdout = proc.stdout.take().unwrap();
     let mut buffer = [0; 15];
     let len = stdout.read(&mut buffer).map_err(|err| {
@@ -134,6 +138,7 @@ pub enum ExitStatus {
     SshError = 255
 }
 
+#[derive(Debug)]
 pub struct SshConfig {
     end_host: String,
     username: String,
@@ -142,6 +147,7 @@ pub struct SshConfig {
     local_port: u32,
     remote_port: u32,
     keepalive: u32,
+    flags: Vec<String>,
 }
 
 impl SshConfig {
@@ -153,6 +159,7 @@ impl SshConfig {
         local_port: u32,
         remote_port: u32,
         keepalive: u32,
+        flags: &[&str]
     ) -> Self {
         SshConfig {
             end_host: String::from(end_host),
@@ -162,26 +169,31 @@ impl SshConfig {
             local_port,
             remote_port,
             keepalive,
+            flags: flags.iter().map(|f| {f.to_string()}).collect()
         }
     }
 
     pub fn to_args(&self) -> Vec<String> {
-        vec![
-            String::from("-T"),
-            String::from("-o"),
-            String::from("UserKnownHostsFile=/dev/null"),
-            String::from("-o"),
-            String::from("StrictHostKeyChecking=no"),
-            String::from("-o"),
-            String::from("ServerAliveCountMax=1"),
-            String::from("-o"),
-            format!("ServerAliveInterval={}", self.keepalive),
-            String::from("-L"),
-            format!("{}:{}:{}", self.local_port, self.to_host, self.remote_port),
-            String::from("-i"),
-            self.key_path.clone(),
-            format!("{}@{}", self.username, self.end_host),
-        ]
+        let mut args = self.flags.clone();
+        args.append(&mut vec![
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "ServerAliveCountMax=1",
+            "-o",
+            &format!("ServerAliveInterval={}", self.keepalive),
+            "-L",
+            &format!("{}:{}:{}", self.local_port, self.to_host, self.remote_port),
+            "-i",
+            &self.key_path,
+            &format!("{}@{}", self.username, self.end_host),
+        ].iter().map(|a| {
+            a.to_string()
+        }).collect::<Vec<String>>());
+        
+        args
     }
 }
 
@@ -191,8 +203,7 @@ mod tests {
 
     #[test]
     fn test_config() {
-        let config = SshConfig::new("endhost", "username", "keypath", "tohost", 1, 2, 10);
-
+        let config = SshConfig::new("endhost", "username", "keypath", "tohost", 1, 2, 10, &["-T"]);
         let args = config.to_args();
         let expected: Vec<String> = vec![
             "-T",
