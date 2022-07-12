@@ -66,7 +66,11 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 					key_path: keyPath,
 				},
 			})
-			console.log('connection res: ', res)
+			if (res === constants.unreachable) {
+				setConnectionErr('Incorrect IP Address')
+			} else if (res === constants.denied) {
+				setConnectionErr('Incorrect username or bad ssh key')
+			}
 		} catch (err: any) {
 			console.log('Connection error: ', err)
 			setConnectionErr(err)

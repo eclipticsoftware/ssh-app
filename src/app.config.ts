@@ -20,4 +20,12 @@ export const constants = {
 
 	// dropped response
 	dropped: 'DROPPED',
+
+	// error during initial connection
+	// server exists but credentials were bad
+	denied: 'DENIED',
+
+	// error during initial connection
+	// server could not be found (bad IP address)
+	unreachable: 'UNREACHABLE',
 }
