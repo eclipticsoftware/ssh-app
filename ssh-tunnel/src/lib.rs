@@ -1,17 +1,19 @@
-use std::io::{Read, Result};
+use std::io::Read;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
 use regex::Regex;
+use num_traits::FromPrimitive;
+use num_derive::FromPrimitive;
 
 pub type SshTunnel = Arc<Mutex<Child>>;
 
-pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, i32)
+pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, ExitStatus)
 where
     F: FnOnce(SshStatus) + Send,
 {
-    let mut exit_status = 0;
+    let mut exit_status = ExitStatus::Clean;
     let mut stderr;
     {
         stderr = tunnel.lock().unwrap().stderr.take().unwrap();
@@ -22,13 +24,17 @@ where
         match tunnel.try_wait() {
             Ok(Some(status)) => {
                 println!("exited with {status}");
-                exit_status = status.code().unwrap();
+                exit_status = if let Some(code) = status.code() {
+                     FromPrimitive::from_i32(code).unwrap()
+                } else {
+                    ExitStatus::Canceled
+                };
                 break;
             }
             Ok(None) => (),
             Err(e) => {
                 println!("error attempting to wait: {e}");
-                exit_status = 100;
+                exit_status = ExitStatus::ProcError;
                 break;
             }
         }
@@ -44,20 +50,36 @@ where
     (ssh_status, exit_status)
 }
 
-pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel> {
-    let proc = Command::new("ssh")
+pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel, SshStatus> {
+    let mut proc = Command::new("ssh")
         .args(config.to_args())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()?;
+        .spawn().map_err(|err| {
+            SshStatus::ProcError(err.to_string())
+        })?;
 
-    let tunnel = Arc::new(Mutex::new(proc));
-    Ok(tunnel)
+    let mut stdout = proc.stdout.take().unwrap();
+    let mut buffer = [0; 15];
+    let len = stdout.read(&mut buffer).map_err(|err| {
+        SshStatus::ProcError(err.to_string())
+    })?;
+
+    if len < 15 {
+        let mut stderr = proc.stderr.take().unwrap();
+        let mut err_msg = String::new();
+        stderr.read_to_string(&mut err_msg).unwrap();
+        Err(parse_stderr(&err_msg))
+    } else {
+        let tunnel = Arc::new(Mutex::new(proc));
+        Ok(tunnel)
+    }
 }
 
 pub fn start_and_watch_ssh_tunnel<F>(
     config: SshConfig,
     callback: F,
-) -> Result<(SshTunnel, thread::JoinHandle<(SshStatus, i32)>)>
+) -> Result<(SshTunnel, thread::JoinHandle<(SshStatus, ExitStatus)>), SshStatus>
 where
     F: FnOnce(SshStatus) + Send + 'static,
 {
@@ -73,6 +95,8 @@ fn parse_stderr(msg: &str) -> SshStatus {
         SshStatus::Dropped
     } else if check_unreachable(msg) {
         SshStatus::Unreachable
+    } else if check_denied(msg) {
+        SshStatus::Denied
     } else {
         SshStatus::Exited
     }
@@ -87,13 +111,27 @@ fn check_unreachable(msg: &str) -> bool {
     msg.contains("Network is unreachable")
 }
 
+fn check_denied(msg: &str) -> bool {
+    msg.contains("Permission denied")
+}
+
 #[derive(Debug, Clone)]
 pub enum SshStatus {
     Running,
     Dropped,
     Unreachable,
+    Denied,
     Exited,
     Retrying,
+    ProcError(String)
+}
+
+#[derive(FromPrimitive)]
+pub enum ExitStatus {
+    Clean = 0,
+    ProcError = 1,
+    Canceled = 2,
+    SshError = 255
 }
 
 pub struct SshConfig {

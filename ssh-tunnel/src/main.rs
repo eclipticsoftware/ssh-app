@@ -1,12 +1,6 @@
-use std::{thread, time::Duration};
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
-use std::io::Read;
+use clap::Parser;
 
-use clap::{Parser};
-
-use ssh_tunnel;
-use ssh_tunnel::{SshConfig, SshStatus};
+use ssh_tunnel::{SshConfig, SshStatus, ExitStatus};
 
 fn main() -> Result<(), i32> {
 
@@ -23,7 +17,7 @@ fn main() -> Result<(), i32> {
     }).map_err(
         |err| {
             println!("Failed to create tunnel: {:?}", err);
-            1
+            ExitStatus::SshError as i32
         }
     )?;
 
@@ -40,14 +34,15 @@ fn main() -> Result<(), i32> {
     }).map_err(
         |err| {
             println!("Failed to set handler: {:?}", err);
-            1
+            100
         }
     )?;
 
+    println!("SSH tunnel started");
     let (ssh_status, exit_status) = hndl.join().unwrap();
     match ssh_status {
         SshStatus::Exited => Ok(()),
-        _ => Err(exit_status)
+        _ => Err(exit_status as i32)
     }
 }
 
