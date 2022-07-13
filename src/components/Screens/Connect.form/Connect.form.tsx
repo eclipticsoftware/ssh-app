@@ -1,5 +1,4 @@
 import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
-import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
@@ -50,11 +49,11 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 				{ dir: BaseDirectory.Home }
 			)
 
-			if (granted)
-				sendNotification({
-					title: 'SUCCESS',
-					body: 'Settings Saved!',
-				})
+			// if (granted)
+			// 	sendNotification({
+			// 		title: 'SUCCESS',
+			// 		body: 'Settings Saved!',
+			// 	})
 		} catch (err: any) {
 			setSettingsErr(err)
 		}
@@ -72,7 +71,7 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 				setConnectionErr('Incorrect username or bad ssh key')
 			}
 		} catch (err: any) {
-			console.log('Connection error: ', err)
+			// console.log('Connection error: ', err)
 			setConnectionErr(err)
 		}
 	}

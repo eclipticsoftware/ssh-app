@@ -38,6 +38,9 @@ export const constants = {
 	// status listener response
 	dropped: 'DROPPED',
 
+	// status listener response
+	disconnected: 'DISCONNECTED',
+
 	// connection invocation response
 	// server exists but credentials were bad
 	denied: 'DENIED',

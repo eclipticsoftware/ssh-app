@@ -40,7 +40,7 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"identifier": "com.tauri.dev",
+			"identifier": "com.newnr.ssh.app",
 			"longDescription": "",
 			"macOS": {
 				"entitlements": null,

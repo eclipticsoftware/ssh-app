@@ -28,12 +28,12 @@ const MainScreenView = styled.div`
 	${mainScreenStyles}
 `
 
-export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR'
+export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR' | 'DISCONNECTED'
 
 export const MainScreen = (): JSX.Element => {
 	const [status, setStatus] = useState<ConnectionStatus | null>(null)
 	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
-	const [unknownErr, setErr] = useState<string | null>(null)
+	const [unknownErr] = useState<string | null>(null)
 
 	const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
 		setStatus(null)
@@ -51,22 +51,24 @@ export const MainScreen = (): JSX.Element => {
 				if (granted)
 					sendNotification({
 						title: 'SUCCESS',
-						body: 'Connected!',
+						body: 'SSH Connected!',
 					})
 			} else if (e.payload === constants.dropped) {
 				setStatus('DROPPED')
 				if (granted)
 					sendNotification({
 						title: 'ERROR',
-						body: 'Connection Dropped!',
+						body: 'SSH Connection Dropped!',
 					})
 			} else if (e.payload === constants.retrying) {
 				setStatus('RETRYING')
 				if (granted)
 					sendNotification({
 						title: 'INTERRUPTION',
-						body: 'Connection Interrupted!',
+						body: 'SSH Connection Interrupted!',
 					})
+			} else if (e.payload === constants.disconnected) {
+				setStatus('DISCONNECTED')
 			}
 		}).then(handler => (cleanupSuccessListener = handler))
 
@@ -74,6 +76,8 @@ export const MainScreen = (): JSX.Element => {
 			if (typeof cleanupErrListener === 'function') cleanupErrListener()
 			if (typeof cleanupSuccessListener === 'function') cleanupSuccessListener()
 		}
+
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
 	return (
