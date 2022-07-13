@@ -99,7 +99,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
                     ctxt.window
                         .as_ref()
                         .unwrap()
-                        .emit("tunnel_error", Some("DROPPED".to_string()))
+                        .emit("tunnel_status", Some("DROPPED".to_string()))
                         .expect("emit drop failed");
                 },
                 SshStatus::Unreachable => {
@@ -107,7 +107,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
                     ctxt.window
                         .as_ref()
                         .unwrap()
-                        .emit("tunnel_error", Some("UNREACHABLE".to_string()))
+                        .emit("tunnel_status", Some("UNREACHABLE".to_string()))
                         .expect("emit unreachable failed");
                 },
                 SshStatus::Denied => {
@@ -115,7 +115,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
                     ctxt.window
                         .as_ref()
                         .unwrap()
-                        .emit("tunnel_error", Some("DENIED".to_string()))
+                        .emit("tunnel_status", Some("DENIED".to_string()))
                         .expect("emit denied failed");
                 },
                 SshStatus::Exited => {
@@ -123,7 +123,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
                     ctxt.window
                         .as_ref()
                         .unwrap()
-                        .emit("tunnel_error", Some("EXIT".to_string()))
+                        .emit("tunnel_status", Some("EXIT".to_string()))
                         .expect("emit eixt failed");
                 },
                 _ => {
@@ -131,7 +131,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
                     ctxt.window
                         .as_ref()
                         .unwrap()
-                        .emit("tunnel_error", Some("ERROR".to_string()))
+                        .emit("tunnel_status", Some("ERROR".to_string()))
                         .expect("emit exit failed");
                 }
             }
@@ -139,17 +139,29 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
     
     match result {
         Ok((tnl, _hndl)) => {
-            println!("Tunnel is started");
             ctxt.tunnel = Some(tnl);
             //ctxt.handle = Some(hndl);
         }
         Err(status) => {
-            return match status {
-                SshStatus::Unreachable => "UNREACHABLE".to_string(),
-                SshStatus::Denied => "DENIED".to_string(),
-                SshStatus::ProcError(err) => format!("ERROR: {err}"),
-                _ => "ERROR: Unspecified".to_string()
-            }
+            println!("error: {:?}", status);
+            let err = match status {
+                SshStatus::Unreachable => "UNREACHABLE",
+                SshStatus::Denied => "DENIED",
+                SshStatus::ProcError(err) => {
+                    println!("Unexpected process error: {err}");
+                    "ERROR"
+                },
+                _ => {
+                    println!("Unknown error");
+                    "ERROR"
+                },
+            };
+            ctxt.window
+                .as_ref()
+                .unwrap()
+                .emit("start_tunnel", Some(err.to_string()))
+                .expect("emit conn failed");
+            return err.to_string();
         }
     }
 
@@ -157,12 +169,15 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
         println!("Window doesn't exist!");
         "ERROR: Unspecified".to_string()
     } else {
+        println!("tunnel started");
+        // Set tunnel_status state as "CONNECTED"
         ctxt.window
             .as_ref()
             .unwrap()
-            .emit("tunnel_connected", Some("SUCCESS".to_string()))
-            .expect("emit conn failed");
-        "SUCCESS".to_string()
+            .emit("tunnel_status", Some("CONNECTED".to_string()))
+            .expect("emit status failed");
+
+        "SUCCESS".to_string() // Return the success state too (also unused right now)
     }
 }
 
