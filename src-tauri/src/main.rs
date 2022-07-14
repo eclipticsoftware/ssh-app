@@ -3,15 +3,13 @@
     windows_subsystem = "windows"
 )]
 
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-//use std::{thread, time::Duration};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Deserialize;
 use tauri::command;
 use tauri::{window::Window, State};
 
-use ssh_tunnel::{SshTunnel, SshConfig, SshStatus, ExitStatus};
+use ssh_tunnel::{SshTunnel, SshConfig, SshStatus};
 
 fn main() {
     let context = Context::new();
@@ -20,7 +18,7 @@ fn main() {
     tauri::Builder::default()
         .on_page_load(move |window, _| {
             println!("Setting window");
-            ctx_win_capt.0.lock().unwrap().window = Some(window);
+            ctx_win_capt.lock().window = Some(window);
         })
         .manage(context)
         .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
@@ -55,6 +53,10 @@ impl Context {
     fn clone(&self) -> Self {
         Context(self.0.clone())
     }
+
+    fn lock(&self) -> MutexGuard<ContextInner> {
+        self.0.lock().unwrap()
+    }
     
 }
 
@@ -84,107 +86,55 @@ impl UserSettings<'_> {
 
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
-
     println!("Starting tunnel: {:?}", settings);
-    let context_thread = context.0.clone();
-    let mut ctxt = context.0.lock().unwrap();
+    spawn_new_tunnel(settings.to_config(), (*context).clone())
+}
+
+fn spawn_new_tunnel(config: SshConfig, context: Context) -> String {
+    let context_thread = context.clone();
+    println!("Spawning new tunnel");
     let result = ssh_tunnel::start_and_watch_ssh_tunnel(
-        settings.to_config(),
+        config,
         move |status| {
-            let ctxt = context_thread.lock().unwrap();
             println!("Status: {:?}", status);
-            match status {
-                SshStatus::Dropped => {
-                    println!("Dropped connection");
-                    ctxt.window
-                        .as_ref()
-                        .unwrap()
-                        .emit("tunnel_status", Some("DROPPED".to_string()))
-                        .expect("emit drop failed");
-                },
-                SshStatus::Unreachable => {
-                    println!("Unreachable");
-                    ctxt.window
-                        .as_ref()
-                        .unwrap()
-                        .emit("tunnel_status", Some("UNREACHABLE".to_string()))
-                        .expect("emit unreachable failed");
-                },
-                SshStatus::Denied => {
-                    println!("Denied");
-                    ctxt.window
-                        .as_ref()
-                        .unwrap()
-                        .emit("tunnel_status", Some("DENIED".to_string()))
-                        .expect("emit denied failed");
-                },
-                SshStatus::Exited => {
-                    println!("Exited cleanly");
-                    ctxt.window
-                        .as_ref()
-                        .unwrap()
-                        .emit("tunnel_status", Some("EXIT".to_string()))
-                        .expect("emit eixt failed");
-                },
-                _ => {
-                    println!("Unsupported status: {:?}", status);
-                    ctxt.window
-                        .as_ref()
-                        .unwrap()
-                        .emit("tunnel_status", Some("ERROR".to_string()))
-                        .expect("emit exit failed");
-                }
-            }
-        });
-    
-    match result {
-        Ok((tnl, _hndl)) => {
-            ctxt.tunnel = Some(tnl);
-            //ctxt.handle = Some(hndl);
-        }
-        Err(status) => {
-            println!("error: {:?}", status);
-            let err = match status {
-                SshStatus::Unreachable => "UNREACHABLE",
-                SshStatus::Denied => "DENIED",
-                SshStatus::ProcError(err) => {
-                    println!("Unexpected process error: {err}");
-                    "ERROR"
-                },
-                _ => {
-                    println!("Unknown error");
-                    "ERROR"
-                },
-            };
+            let ctxt = context_thread.lock();
             ctxt.window
                 .as_ref()
                 .unwrap()
-                .emit("start_tunnel", Some(err.to_string()))
-                .expect("emit conn failed");
-            return err.to_string();
+                .emit("tunnel_status", Some(status.to_signal()))
+                .expect("emit drop failed");
+
+        });
+
+    println!("Tunnel spawned");
+    let mut ctxt = context.lock();
+    let status_signal = match result {
+        Ok((tnl, _hndl)) => {
+            println!("Tunnel running");
+            ctxt.tunnel = Some(tnl);
+            //ctxt.handle = Some(hndl);
+            SshStatus::Connected.to_signal()
         }
-    }
+        Err(status) => {
+            println!("error: {:?}", status);
+            status.to_signal()
+        }
+    };
 
-    if ctxt.window.is_none() {
-        println!("Window doesn't exist!");
-        "ERROR: Unspecified".to_string()
-    } else {
-        println!("tunnel started");
-        // Set tunnel_status state as "CONNECTED"
-        ctxt.window
-            .as_ref()
-            .unwrap()
-            .emit("tunnel_status", Some("CONNECTED".to_string()))
-            .expect("emit status failed");
+    ctxt.window
+        .as_ref()
+        .unwrap()
+        .emit("tunnel_status", Some(status_signal.clone()))
+        .expect("emit status failed");
 
-        "SUCCESS".to_string() // Return the success state too (also unused right now)
-    }
+    status_signal
 }
+
 
 #[command]
 fn end_tunnel(context: State<'_, Context>) {
     println!("Killing tunnel");
-    let context = context.0.lock().unwrap();
+    let context = context.lock();
     let mut tunnel = context.tunnel.as_ref().unwrap().lock().unwrap();
     match tunnel.kill() {
         Ok(_) => {

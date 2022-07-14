@@ -9,11 +9,12 @@ use num_derive::FromPrimitive;
 
 pub type SshTunnel = Arc<Mutex<Child>>;
 
+
 pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, ExitStatus)
 where
     F: FnOnce(SshStatus) + Send,
 {
-    let mut exit_status = ExitStatus::Clean;
+    let exit_status: ExitStatus;
     let mut stderr;
     {
         stderr = tunnel.lock().unwrap().stderr.take().unwrap();
@@ -121,13 +122,31 @@ fn check_denied(msg: &str) -> bool {
 
 #[derive(Debug, Clone)]
 pub enum SshStatus {
-    Running,
+    Connected,
     Dropped,
     Unreachable,
     Denied,
     Exited,
     Retrying,
     ProcError(String)
+}
+
+impl SshStatus {
+    pub fn to_signal(&self) -> String {
+        let status = match self {
+            SshStatus::Connected => "CONNECTED",
+            SshStatus::Dropped => "DROPPED",
+            SshStatus::Unreachable => "UNREACHABLE",
+            SshStatus::Denied => "DENIED",
+            SshStatus::Exited => "EXIT",
+            SshStatus::Retrying => "RETRYING",
+            SshStatus::ProcError(msg) => {
+                println!("Process error: {msg}");
+                "ERROR"
+            }
+        };
+        status.to_string()
+    }
 }
 
 #[derive(FromPrimitive)]
@@ -151,6 +170,8 @@ pub struct SshConfig {
 }
 
 impl SshConfig {
+
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         end_host: &str,
         username: &str,
