@@ -8,16 +8,13 @@ use num_traits::FromPrimitive;
 use num_derive::FromPrimitive;
 
 pub type SshTunnel = Arc<Mutex<Child>>;
+pub type SshHandle = thread::JoinHandle<(SshStatus, ExitStatus)>;
 
-pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, ExitStatus)
+pub fn ssh_watch_loop<F>(tunnel: SshTunnel, exit_callback: F) -> (SshStatus, ExitStatus)
 where
     F: FnOnce(SshStatus) + Send,
 {
-    let mut exit_status = ExitStatus::Clean;
-    let mut stderr;
-    {
-        stderr = tunnel.lock().unwrap().stderr.take().unwrap();
-    }
+    let exit_status: ExitStatus;
 
     loop {
         let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
@@ -41,12 +38,17 @@ where
         thread::sleep(Duration::from_millis(100));
     }
 
+    // Capture stderr to discover exit reason
+    let mut stderr = {
+        tunnel.lock().unwrap().stderr.take().unwrap()
+    };
+
     let mut err_msg = String::new();
     stderr.read_to_string(&mut err_msg).unwrap();
 
     println!("Error: {}", err_msg);
     let ssh_status = parse_stderr(&err_msg);
-    callback(ssh_status.clone());
+    exit_callback(ssh_status.clone());
     (ssh_status, exit_status)
 }
 
@@ -83,7 +85,7 @@ pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel, SshStatus> {
 pub fn start_and_watch_ssh_tunnel<F>(
     config: SshConfig,
     callback: F,
-) -> Result<(SshTunnel, thread::JoinHandle<(SshStatus, ExitStatus)>), SshStatus>
+) -> Result<(SshTunnel, SshHandle), SshStatus>
 where
     F: FnOnce(SshStatus) + Send + 'static,
 {
@@ -101,6 +103,8 @@ fn parse_stderr(msg: &str) -> SshStatus {
         SshStatus::Unreachable
     } else if check_denied(msg) {
         SshStatus::Denied
+    } else if check_bad_port(msg) {
+        SshStatus::ConfigError(msg.to_string())
     } else {
         SshStatus::Exited
     }
@@ -119,15 +123,42 @@ fn check_denied(msg: &str) -> bool {
     msg.contains("Permission denied")
 }
 
+fn check_bad_port(msg: &str) -> bool {
+    msg.contains("Bad local forwarding specification")
+}
+
 #[derive(Debug, Clone)]
 pub enum SshStatus {
-    Running,
+    Connected,
     Dropped,
     Unreachable,
     Denied,
     Exited,
     Retrying,
+    ConfigError(String),
     ProcError(String)
+}
+
+impl SshStatus {
+    pub fn to_signal(&self) -> String {
+        let status = match self {
+            SshStatus::Connected => "CONNECTED",
+            SshStatus::Dropped => "DROPPED",
+            SshStatus::Unreachable => "UNREACHABLE",
+            SshStatus::Denied => "DENIED",
+            SshStatus::Exited => "EXIT",
+            SshStatus::Retrying => "RETRYING",
+            SshStatus::ConfigError(msg) => {
+                println!("Config error: {msg}");
+                "BAD_CONFIG"
+            }
+            SshStatus::ProcError(msg) => {
+                println!("Process error: {msg}");
+                "ERROR"
+            }
+        };
+        status.to_string()
+    }
 }
 
 #[derive(FromPrimitive)]
@@ -138,7 +169,7 @@ pub enum ExitStatus {
     SshError = 255
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SshConfig {
     end_host: String,
     username: String,
@@ -151,6 +182,8 @@ pub struct SshConfig {
 }
 
 impl SshConfig {
+
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         end_host: &str,
         username: &str,
