@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
 import { constants, userSettingsPath } from '../../../app.config'
-import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
 import { ErrorBlock, ErrorBlockErr } from '../../UI/ErrorBlock'
@@ -38,7 +37,6 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 	const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
 	const { loading, settings } = useSettings()
-	const { granted } = useGetNotificationPermission()
 
 	const initialVals = settings
 
