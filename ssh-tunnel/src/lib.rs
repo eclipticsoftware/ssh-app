@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use num_derive::FromPrimitive;
 
 pub type SshTunnel = Arc<Mutex<Child>>;
-
+pub type SshHandle = thread::JoinHandle<(SshStatus, ExitStatus)>;
 
 pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, ExitStatus)
 where
@@ -84,7 +84,7 @@ pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel, SshStatus> {
 pub fn start_and_watch_ssh_tunnel<F>(
     config: SshConfig,
     callback: F,
-) -> Result<(SshTunnel, thread::JoinHandle<(SshStatus, ExitStatus)>), SshStatus>
+) -> Result<(SshTunnel, SshHandle), SshStatus>
 where
     F: FnOnce(SshStatus) + Send + 'static,
 {
@@ -157,7 +157,7 @@ pub enum ExitStatus {
     SshError = 255
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SshConfig {
     end_host: String,
     username: String,

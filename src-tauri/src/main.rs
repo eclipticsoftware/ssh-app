@@ -4,12 +4,13 @@
 )]
 
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::{thread, time::Duration};
 
 use serde::Deserialize;
 use tauri::command;
 use tauri::{window::Window, State};
 
-use ssh_tunnel::{SshTunnel, SshConfig, SshStatus};
+use ssh_tunnel::{SshConfig, SshHandle, SshStatus, SshTunnel};
 
 fn main() {
     let context = Context::new();
@@ -45,7 +46,6 @@ impl ContextInner {
 struct Context(Arc<Mutex<ContextInner>>);
 
 impl Context {
-
     fn new() -> Self {
         Context(Arc::new(Mutex::new(ContextInner::new())))
     }
@@ -57,7 +57,6 @@ impl Context {
     fn lock(&self) -> MutexGuard<ContextInner> {
         self.0.lock().unwrap()
     }
-    
 }
 
 #[derive(Deserialize, Debug)]
@@ -69,7 +68,6 @@ struct UserSettings<'a> {
 }
 
 impl UserSettings<'_> {
-
     fn to_config(&self) -> SshConfig {
         SshConfig::new(
             self.host,
@@ -79,7 +77,7 @@ impl UserSettings<'_> {
             self.port.parse().unwrap(),
             5432,
             10,
-            &["-t", "-t"]
+            &["-t", "-t"],
         )
     }
 }
@@ -87,25 +85,45 @@ impl UserSettings<'_> {
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
     println!("Starting tunnel: {:?}", settings);
-    spawn_new_tunnel(settings.to_config(), (*context).clone())
+    let result = spawn_new_tunnel(settings.to_config(), (*context).clone());
+    manage_spawn_result(result, (*context).clone())
 }
 
-fn spawn_new_tunnel(config: SshConfig, context: Context) -> String {
+fn spawn_new_tunnel(
+    config: SshConfig,
+    context: Context,
+) -> Result<(SshTunnel, SshHandle), SshStatus> {
     let context_thread = context.clone();
     println!("Spawning new tunnel");
-    let result = ssh_tunnel::start_and_watch_ssh_tunnel(
-        config,
-        move |status| {
-            println!("Status: {:?}", status);
-            let ctxt = context_thread.lock();
-            ctxt.window
-                .as_ref()
-                .unwrap()
-                .emit("tunnel_status", Some(status.to_signal()))
-                .expect("emit drop failed");
+    ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
+        println!("Status: {:?}", status);
 
-        });
+        let status = match status {
+            SshStatus::Dropped => { // Attempt to reconnect in separate thread
+                let context_retry = context_thread.clone();
+                thread::spawn(move || {
+                    attempt_reconnect(config, context_retry, 5);
+                });
+                SshStatus::Retrying
+            },
+            _ => {
+                status
+            }
+        };
 
+        let ctxt = context_thread.lock();
+        ctxt.window
+            .as_ref()
+            .unwrap()
+            .emit("tunnel_status", Some(status.to_signal()))
+            .expect("emit drop failed");
+    })
+}
+
+fn manage_spawn_result(
+    result: Result<(SshTunnel, SshHandle), SshStatus>,
+    context: Context,
+) -> String {
     println!("Tunnel spawned");
     let mut ctxt = context.lock();
     let status_signal = match result {
@@ -130,6 +148,18 @@ fn spawn_new_tunnel(config: SshConfig, context: Context) -> String {
     status_signal
 }
 
+fn attempt_reconnect(config: SshConfig, context: Context, tries: u8) -> String {
+    println!("Attempting to reconnect. {tries} tries left");
+    let result = spawn_new_tunnel(config.clone(), context.clone());
+    if result.is_ok() {
+        manage_spawn_result(result, context)
+    } else if tries == 0 {
+        manage_spawn_result(Err(SshStatus::Dropped), context)
+    } else {
+        thread::sleep(Duration::from_secs(3));
+        attempt_reconnect(config, context, tries - 1)
+    }
+}
 
 #[command]
 fn end_tunnel(context: State<'_, Context>) {
@@ -139,7 +169,7 @@ fn end_tunnel(context: State<'_, Context>) {
     match tunnel.kill() {
         Ok(_) => {
             println!("killed");
-        },
+        }
         Err(err) => {
             println!("Not killed: {err}")
         }
