@@ -102,6 +102,8 @@ fn parse_stderr(msg: &str) -> SshStatus {
         SshStatus::Unreachable
     } else if check_denied(msg) {
         SshStatus::Denied
+    } else if check_bad_port(msg) {
+        SshStatus::ConfigError(msg.to_string())
     } else {
         SshStatus::Exited
     }
@@ -120,6 +122,10 @@ fn check_denied(msg: &str) -> bool {
     msg.contains("Permission denied")
 }
 
+fn check_bad_port(msg: &str) -> bool {
+    msg.contains("Bad local forwarding specification")
+}
+
 #[derive(Debug, Clone)]
 pub enum SshStatus {
     Connected,
@@ -128,6 +134,7 @@ pub enum SshStatus {
     Denied,
     Exited,
     Retrying,
+    ConfigError(String),
     ProcError(String)
 }
 
@@ -140,6 +147,10 @@ impl SshStatus {
             SshStatus::Denied => "DENIED",
             SshStatus::Exited => "EXIT",
             SshStatus::Retrying => "RETRYING",
+            SshStatus::ConfigError(msg) => {
+                println!("Config error: {msg}");
+                "BAD_CONFIG"
+            }
             SshStatus::ProcError(msg) => {
                 println!("Process error: {msg}");
                 "ERROR"

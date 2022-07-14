@@ -68,24 +68,35 @@ struct UserSettings<'a> {
 }
 
 impl UserSettings<'_> {
-    fn to_config(&self) -> SshConfig {
-        SshConfig::new(
+    fn to_config(&self) -> Result<SshConfig, std::num::ParseIntError> {
+
+        let port = self.port.parse()?;
+        Ok(SshConfig::new(
             self.host,
             self.user,
             self.key_path,
             "localhost",
-            self.port.parse().unwrap(),
+            port,
             5432,
             10,
             &["-t", "-t"],
-        )
+        ))
     }
 }
 
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
+    let config = match settings.to_config() {
+        Ok(cfg) => {
+            cfg
+        },
+        Err(_err) => {
+            return SshStatus::ConfigError("Illegal port value".to_string()).to_signal();
+        }
+    };
+    
     println!("Starting tunnel: {:?}", settings);
-    let result = spawn_new_tunnel(settings.to_config(), (*context).clone());
+    let result = spawn_new_tunnel(config, (*context).clone());
     manage_spawn_result(result, (*context).clone())
 }
 
