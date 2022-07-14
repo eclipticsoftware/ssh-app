@@ -10,15 +10,11 @@ use num_derive::FromPrimitive;
 pub type SshTunnel = Arc<Mutex<Child>>;
 pub type SshHandle = thread::JoinHandle<(SshStatus, ExitStatus)>;
 
-pub fn ssh_watch_loop<F>(tunnel: SshTunnel, callback: F) -> (SshStatus, ExitStatus)
+pub fn ssh_watch_loop<F>(tunnel: SshTunnel, exit_callback: F) -> (SshStatus, ExitStatus)
 where
     F: FnOnce(SshStatus) + Send,
 {
     let exit_status: ExitStatus;
-    let mut stderr;
-    {
-        stderr = tunnel.lock().unwrap().stderr.take().unwrap();
-    }
 
     loop {
         let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
@@ -42,12 +38,17 @@ where
         thread::sleep(Duration::from_millis(100));
     }
 
+    // Capture stderr to discover exit reason
+    let mut stderr = {
+        tunnel.lock().unwrap().stderr.take().unwrap()
+    };
+
     let mut err_msg = String::new();
     stderr.read_to_string(&mut err_msg).unwrap();
 
     println!("Error: {}", err_msg);
     let ssh_status = parse_stderr(&err_msg);
-    callback(ssh_status.clone());
+    exit_callback(ssh_status.clone());
     (ssh_status, exit_status)
 }
 

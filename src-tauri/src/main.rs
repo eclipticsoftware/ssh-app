@@ -8,7 +8,7 @@ use std::{thread, time::Duration};
 
 use serde::Deserialize;
 use tauri::command;
-use tauri::{window::Window, State};
+use tauri::{window::Window, State, RunEvent, ActivationPolicy};
 
 use ssh_tunnel::{SshConfig, SshHandle, SshStatus, SshTunnel};
 
@@ -16,15 +16,26 @@ fn main() {
     let context = Context::new();
 
     let ctx_win_capt = context.clone();
-    tauri::Builder::default()
+    let mut app = tauri::Builder::default()
         .on_page_load(move |window, _| {
             println!("Setting window");
             ctx_win_capt.lock().window = Some(window);
         })
-        .manage(context)
+        .manage(context.clone())
         .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(ActivationPolicy::Regular);
+
+    let ctx_app = context.clone();
+    app.run(move |_app_handle, event| {
+        if let RunEvent::ExitRequested {api: _, ..} = event {
+            println!("Exiting app...");
+            kill_tunnel(ctx_app.clone());
+        }
+    })
 }
 
 struct ContextInner {
@@ -108,7 +119,6 @@ fn spawn_new_tunnel(
     println!("Spawning new tunnel");
     ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
         println!("Status: {:?}", status);
-
         let status = match status {
             SshStatus::Dropped => { // Attempt to reconnect in separate thread
                 let context_retry = context_thread.clone();
@@ -172,10 +182,12 @@ fn attempt_reconnect(config: SshConfig, context: Context, tries: u8) -> String {
     }
 }
 
-#[command]
-fn end_tunnel(context: State<'_, Context>) {
-    println!("Killing tunnel");
+fn kill_tunnel(context: Context) {
     let context = context.lock();
+    if context.tunnel.is_none() {
+        return;
+    }
+    println!("Killing tunnel");
     let mut tunnel = context.tunnel.as_ref().unwrap().lock().unwrap();
     match tunnel.kill() {
         Ok(_) => {
@@ -185,4 +197,9 @@ fn end_tunnel(context: State<'_, Context>) {
             println!("Not killed: {err}")
         }
     }
+}
+
+#[command]
+fn end_tunnel(context: State<'_, Context>) {
+    kill_tunnel((*context).clone());
 }
