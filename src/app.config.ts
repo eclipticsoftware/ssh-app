@@ -41,6 +41,9 @@ export const constants = {
 	// status listener response
 	disconnected: 'DISCONNECTED',
 
+	// status listener response
+	badConfig: 'BAD_CONFIG',
+
 	// connection invocation response
 	// server exists but credentials were bad
 	denied: 'DENIED',

@@ -31,12 +31,12 @@ const MainScreenView = styled.div`
 export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR' | 'DISCONNECTED'
 
 export const MainScreen = (): JSX.Element => {
-	const [status, setStatus] = useState<ConnectionStatus | null>(null)
+	const [status, setStatus] = useState<ConnectionStatus>('DISCONNECTED')
 	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
-	const [unknownErr] = useState<string | null>(null)
+	const [unknownErr, setErr] = useState<string | null>(null)
 
 	const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
-		setStatus(null)
+		setStatus('DISCONNECTED')
 	}
 
 	const { granted } = useGetNotificationPermission()
@@ -46,29 +46,57 @@ export const MainScreen = (): JSX.Element => {
 		let cleanupSuccessListener: UnlistenFn
 
 		listen(constants.tunnelStatus, e => {
-			if (e.payload === constants.connected) {
+			const payload = e.payload as string
+
+			if (payload === constants.connected) {
+				/**
+				 *  SUCCESSFULLY CONNECTED
+				 * */
+
 				setStatus('OK')
 				if (granted)
 					sendNotification({
 						title: 'SUCCESS',
 						body: 'SSH Connected!',
 					})
-			} else if (e.payload === constants.dropped) {
+			} else if (payload === constants.dropped) {
+				/**
+				 *  CONNECTION DROPPED
+				 * */
+
 				setStatus('DROPPED')
 				if (granted)
 					sendNotification({
 						title: 'ERROR',
 						body: 'SSH Connection Dropped!',
 					})
-			} else if (e.payload === constants.retrying) {
+			} else if (payload === constants.retrying) {
+				/**
+				 *  ATTEMPTING TO RE-ESTABLISH CONNECTION
+				 * */
+
 				setStatus('RETRYING')
 				if (granted)
 					sendNotification({
 						title: 'INTERRUPTION',
 						body: 'SSH Connection Interrupted!',
 					})
-			} else if (e.payload === constants.disconnected) {
+			} else if (payload === constants.disconnected) {
+				/**
+				 *  CONNECTION NOT YET ESTABLISHED
+				 *  NOTE: This is both the state when the app opens
+				 *  as well as when the connection is manually terminated by the user
+				 * */
+
 				setStatus('DISCONNECTED')
+			} else if (payload?.includes(constants.badConfig)) {
+				/**
+				 *  ERROR DUE TO USER ENTERING INVALID CONFIG OPTIONS
+				 * */
+
+				const errMsg = payload.substring(10)
+				setStatus('ERROR')
+				setErr(`Invalid parameter(s): ${errMsg}`)
 			}
 		}).then(handler => (cleanupSuccessListener = handler))
 
