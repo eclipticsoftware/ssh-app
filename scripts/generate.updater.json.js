@@ -1,10 +1,13 @@
 const fs = require('fs')
+const { join } = require('path')
 require('dotenv').config()
 
 const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8'))
 
 const VERSION = config?.package?.version
 const TAG = '' // TODO: we need to get the tag somehow...
+const GH_WORKSPACE_PATH = process.env.GITHUB_WORKSPACE
+const FILE_PATH = 'ssh-app/updater.json'
 
 function main() {
 	const updater = {
@@ -27,7 +30,9 @@ function main() {
 		},
 	}
 
-	fs.writeFileSync('ssh-app/updater.json', JSON.stringify(updater, null, 2))
+	const fileName = GH_WORKSPACE_PATH ? join(GH_WORKSPACE_PATH, FILE_PATH) : FILE_PATH
+
+	fs.writeFileSync(fileName, JSON.stringify(updater, null, 2))
 }
 
 main()
