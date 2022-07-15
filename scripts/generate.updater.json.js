@@ -43,4 +43,8 @@ function main() {
 
 main()
 
+// Mac zip download link:
 // https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-3c1507b2d46ce658c719/ssh-app.app.tar.gz
+
+// Windows download link:
+// https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-3c1507b2d46ce658c719/ssh-app_0.0.1_x64_en-US.msi

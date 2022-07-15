@@ -1,8 +1,10 @@
 import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
+import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
 import { constants, userSettingsPath } from '../../../app.config'
+import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import useState from '../../../utils/useState'
 import { ErrorBlock, ErrorBlockErr } from '../../UI/ErrorBlock'
@@ -36,7 +38,8 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 	const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
 	const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
-	const { loading, settings } = useSettings()
+	const { loading, settings, error: settingsErr } = useSettings()
+	const { granted } = useGetNotificationPermission()
 
 	const initialVals = settings
 
@@ -47,11 +50,11 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 				{ dir: BaseDirectory.Home }
 			)
 
-			// if (granted)
-			// 	sendNotification({
-			// 		title: 'SUCCESS',
-			// 		body: 'Settings Saved!',
-			// 	})
+			if (!settings && granted)
+				sendNotification({
+					title: 'SUCCESS',
+					body: 'Settings Saved!',
+				})
 		} catch (err: any) {
 			setSettingsErr(err)
 		}
@@ -78,6 +81,7 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 
 	return (
 		<ConnectScreenView>
+			{settingsErr ? <ErrorBlock error={settingsErr} /> : null}
 			{loading ? (
 				<Spinner />
 			) : (

@@ -13,7 +13,8 @@ type UserSettings = typeof defaultSettings
 export const useSettings = () => {
 	const [settings, setSettings] = useState<UserSettings>(defaultSettings)
 	const [loading, setLoading] = useState(false)
-	const settingsLoaded = useRef(false)
+	const [error, setError] = useState<string | null>(null)
+	const isDone = useRef(false)
 
 	useEffect(() => {
 		const getFile = async () => {
@@ -30,16 +31,18 @@ export const useSettings = () => {
 							...state,
 							...file,
 						}))
-					settingsLoaded.current = true
+					isDone.current = true
 				}
 				setLoading(false)
-			} catch (err) {
+			} catch (err: any) {
 				// We don't want to report any errors from this
+				isDone.current = true
 				setLoading(false)
+				setError(err)
 			}
 		}
-		if (!loading && !settingsLoaded.current) getFile()
+		if (!loading && !isDone.current) getFile()
 	}, [loading, settings])
 
-	return { settings, loading }
+	return { settings, loading, error }
 }

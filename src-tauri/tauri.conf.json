@@ -7,7 +7,7 @@
 		"distDir": "../build"
 	},
 	"package": {
-		"productName": "ssh-app",
+		"productName": "Ecliptic SSH Client",
 		"version": "0.0.1"
 	},
 	"tauri": {

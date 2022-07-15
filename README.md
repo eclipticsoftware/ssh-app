@@ -1,4 +1,4 @@
-# Ecliptic SSH Client App
+# SSH Client App
 
 > Creates SSH tunnel with port forwarding
 
