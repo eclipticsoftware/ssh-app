@@ -4,6 +4,7 @@ require('dotenv').config()
 const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8'))
 
 const VERSION = config?.package?.version
+const TAG = '' // TODO: we need to get the tag somehow...
 
 function main() {
 	const updater = {
@@ -13,15 +14,11 @@ function main() {
 		platforms: {
 			darwinx86_64: {
 				signature: '',
-				url: `https://github.com/eclipticsoftware/ssh-app/releases/download/v${VERSION}/ssh-app.tar.gz`,
+				url: `https://github.com/eclipticsoftware/ssh-app/releases/download/${TAG}/ssh-app_${VERSION}_.tar.gz`,
 			},
 			darwinaarch64: {
 				signature: '',
-				url: `https://github.com/eclipticsoftware/ssh-app/releases/download/v${VERSION}/silicon/ssh-app.tar.gz`,
-			},
-			linuxx86_64: {
-				signature: '',
-				url: `https://github.com/eclipticsoftware/ssh-app/releases/download/v${VERSION}/ssh-appImage.tar.gz`,
+				url: `https://github.com/eclipticsoftware/ssh-app/releases/download/${TAG}/ssh-app_${VERSION}_.tar.gz`,
 			},
 			windowsx86_64: {
 				signature: '',
@@ -34,3 +31,5 @@ function main() {
 }
 
 main()
+
+// https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-3c1507b2d46ce658c719/ssh-app.app.tar.gz

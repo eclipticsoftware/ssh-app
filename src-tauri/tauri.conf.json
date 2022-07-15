@@ -50,7 +50,7 @@
 				"signingIdentity": null
 			},
 			"resources": [],
-			"shortDescription": "",
+			"shortDescription": "Ecliptic SSH client application with port forwarding",
 			"targets": "all",
 			"windows": {
 				"certificateThumbprint": null,
