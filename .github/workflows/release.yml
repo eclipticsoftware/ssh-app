@@ -27,6 +27,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+      - name: Install app dependencies and build
+        run: yarn && yarn build
+        env:
+          FA_TOKEN: ${{ secrets.FA_TOKEN }}
       - name: Generate updater json
         run: yarn updater:gen
         env:
@@ -39,11 +43,6 @@ jobs:
           token: ${{ secrets.GIST_TOKEN }}
           gist_id: ${{ secrets.UPDATER_ID }}
           file_path: updater.json
-      - name: Install app dependencies and build
-        run: yarn && yarn build
-        env:
-          FA_TOKEN: ${{ secrets.FA_TOKEN }}
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
