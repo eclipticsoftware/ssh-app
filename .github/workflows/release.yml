@@ -46,6 +46,7 @@ jobs:
         run: yarn updater:gen
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
+          GITHUB_WORKSPACE: ${{ env.GITHUB_WORKSPACE }}
       - uses: actions/checkout@v3
       - name: Deploy updater JSON
         uses: exuanbo/actions-deploy-gist@v1
