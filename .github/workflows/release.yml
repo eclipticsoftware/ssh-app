@@ -36,7 +36,6 @@ jobs:
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
-      - uses: actions/checkout@v3
       - name: Deploy updater JSON
         uses: exuanbo/actions-deploy-gist@v1
         with:
