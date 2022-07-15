@@ -1,0 +1,19 @@
+{
+  "version": "v0.0.1",
+  "notes": "Alpha version",
+  "pub_date": "2022-07-15T03:05:21.512Z",
+  "platforms": {
+    "darwinx86_64": {
+      "signature": "",
+      "url": "https://github.com/eclipticsoftware/ssh-app/releases/download//ssh-app_0.0.1_.tar.gz"
+    },
+    "darwinaarch64": {
+      "signature": "",
+      "url": "https://github.com/eclipticsoftware/ssh-app/releases/download//ssh-app_0.0.1_.tar.gz"
+    },
+    "windowsx86_64": {
+      "signature": "",
+      "url": "https://github.com/eclipticsoftware/ssh-app/releases/download/v0.0.1/ssh-app.x64.msi.zip"
+    }
+  }
+}

@@ -52,4 +52,4 @@ jobs:
         with:
           token: ${{ secrets.GIST_TOKEN }}
           gist_id: ${{ secrets.UPDATER_ID }}
-          file_path: ./updater.json
+          file_path: updater.json

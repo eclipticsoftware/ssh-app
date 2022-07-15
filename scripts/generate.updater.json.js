@@ -27,7 +27,7 @@ function main() {
 		},
 	}
 
-	fs.writeFileSync('./updater.json', JSON.stringify(updater, null, 2))
+	fs.writeFileSync('ssh-app/updater.json', JSON.stringify(updater, null, 2))
 }
 
 main()
