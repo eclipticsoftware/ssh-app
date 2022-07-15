@@ -13,6 +13,18 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
+    - name: Generate updater json
+        run: yarn updater:gen
+        env:
+          FA_TOKEN: ${{ secrets.FA_TOKEN }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+      - uses: actions/checkout@v3
+      - name: Deploy updater JSON
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ secrets.UPDATER_ID }}
+          file_path: updater.json
       - uses: actions/checkout@v2
       - name: Setup node
         uses: actions/setup-node@v1
@@ -31,18 +43,6 @@ jobs:
         run: yarn && yarn build
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
-      - name: Generate updater json
-        run: yarn updater:gen
-        env:
-          FA_TOKEN: ${{ secrets.FA_TOKEN }}
-          GITHUB_WORKSPACE: ${{ env.GITHUB_WORKSPACE }}
-      - uses: actions/checkout@v3
-      - name: Deploy updater JSON
-        uses: exuanbo/actions-deploy-gist@v1
-        with:
-          token: ${{ secrets.GIST_TOKEN }}
-          gist_id: ${{ secrets.UPDATER_ID }}
-          file_path: updater.json
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
