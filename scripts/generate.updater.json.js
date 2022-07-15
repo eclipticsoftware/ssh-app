@@ -1,7 +1,9 @@
 const fs = require('fs')
 require('dotenv').config()
 
-const VERSION = process.env.APP_VERSION
+const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8'))
+
+const VERSION = config?.package?.version
 
 function main() {
 	const updater = {
