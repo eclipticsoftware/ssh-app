@@ -6,7 +6,7 @@ import { constants } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { Board } from '../../UI/Board'
 import { BoardHeader } from '../../UI/Board.header/Board.header'
-import { ConnectForm } from '../Connect.form'
+import { ConnectScreen } from '../Connect.screen'
 import { ConnectedScreen, ConnectedScreenProps } from '../Connected.screen'
 
 export const mainScreenStyles = css`
@@ -114,7 +114,7 @@ export const MainScreen = (): JSX.Element => {
 				{showConnectedScreen ? (
 					<ConnectedScreen status={status} onDisconnect={onDisconnect} />
 				) : (
-					<ConnectForm unknownErr={unknownErr} />
+					<ConnectScreen unknownErr={unknownErr} />
 				)}
 			</Board>
 		</MainScreenView>

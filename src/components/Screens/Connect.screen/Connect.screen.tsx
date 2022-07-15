@@ -12,14 +12,14 @@ import { FormikText } from '../../UI/Formik/Formik.fields/Formik.text'
 import { FormikForm } from '../../UI/Formik/Formik.form'
 import { Spinner } from '../../UI/Spinner'
 
-export const connectFormStyles = css`
+export const connectScreenStyles = css`
 	.submit-btn {
 		margin-top: 1em;
 	}
 `
 
-const ConnectFormView = styled.div`
-	${connectFormStyles}
+const ConnectScreenView = styled.div`
+	${connectScreenStyles}
 `
 
 const validationSchema = Yup.object().shape({
@@ -29,10 +29,10 @@ const validationSchema = Yup.object().shape({
 	keyPath: Yup.string().required('Please select an SSH Key file'),
 })
 
-export type ConnectFormProps = {
+export type ConnectScreenProps = {
 	unknownErr: string | null
 }
-export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
+export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element => {
 	const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
 	const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
@@ -77,7 +77,7 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 	const error = settingsSaveErr || connectionErr
 
 	return (
-		<ConnectFormView>
+		<ConnectScreenView>
 			{loading ? (
 				<Spinner />
 			) : (
@@ -97,6 +97,6 @@ export const ConnectForm = ({ unknownErr }: ConnectFormProps): JSX.Element => {
 					<FormikSubmitBtn>Connect</FormikSubmitBtn>
 				</FormikForm>
 			)}
-		</ConnectFormView>
+		</ConnectScreenView>
 	)
 }
