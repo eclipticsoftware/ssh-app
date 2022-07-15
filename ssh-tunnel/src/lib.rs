@@ -194,10 +194,11 @@ impl SshConfig {
         keepalive: u32,
         flags: &[&str]
     ) -> Self {
+        let kp = key_path.to_string().replace("C:", "").replace('\\', "/");
         SshConfig {
             end_host: String::from(end_host),
             username: String::from(username),
-            key_path: String::from(key_path),
+            key_path: kp,
             to_host: String::from(to_host),
             local_port,
             remote_port,
