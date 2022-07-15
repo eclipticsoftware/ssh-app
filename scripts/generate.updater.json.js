@@ -7,6 +7,8 @@ const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8')
 const VERSION = config?.package?.version
 const TAG = '' // TODO: we need to get the tag somehow...
 const GH_WORKSPACE_PATH = process.env.GITHUB_WORKSPACE
+const releaseId = process.env.RELEASE_ID
+const releaseUrl = process.env.RELEASE_URL
 const FILE_PATH = 'updater.json'
 
 function main() {

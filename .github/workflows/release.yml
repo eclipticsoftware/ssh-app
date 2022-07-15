@@ -12,6 +12,9 @@ jobs:
         platform: [macos-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
+    outputs:
+      release_id: ${{ steps.create-release.outputs.releaseId }}
+      release_url: ${{ steps.create-release.outputs.releaseHtmlUrl }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup node
@@ -36,12 +39,16 @@ jobs:
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          RELEASE_URL: ${{ needs.create-release.outputs.release_url }}
       - name: Deploy updater JSON
         uses: exuanbo/actions-deploy-gist@v1
         with:
           token: ${{ secrets.GIST_TOKEN }}
           gist_id: ${{ secrets.UPDATER_ID }}
           file_path: updater.json
+      - name: create release
+        id: create-release
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
