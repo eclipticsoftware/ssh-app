@@ -8,7 +8,10 @@ use std::{thread, time::Duration};
 
 use serde::Deserialize;
 use tauri::command;
-use tauri::{window::Window, State, RunEvent, ActivationPolicy};
+use tauri::{window::Window, State, RunEvent};
+
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
 
 use ssh_tunnel::{SshConfig, SshHandle, SshStatus, SshTunnel};
 
