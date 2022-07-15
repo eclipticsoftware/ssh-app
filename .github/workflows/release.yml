@@ -13,7 +13,12 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-    - name: Generate updater json
+      - uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18
+      - name: Generate updater json
         run: yarn updater:gen
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
@@ -25,11 +30,6 @@ jobs:
           token: ${{ secrets.GIST_TOKEN }}
           gist_id: ${{ secrets.UPDATER_ID }}
           file_path: updater.json
-      - uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 18
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
