@@ -34,8 +34,8 @@
 		"eject": "react-scripts eject",
 		"dev": "yarn start",
 		"tauri": "tauri",
-		"bundle": "tauri build",
-		"updater:gen": "node ./scripts/generate.updater.json.js"
+		"bundle": "yarn build && tauri build",
+		"latest:gen": "node ./scripts/generate.latest.json.js"
 	},
 	"engines": {
 		"node": "^18.0.0"
