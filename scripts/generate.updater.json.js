@@ -5,7 +5,7 @@ require('dotenv').config()
 const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8'))
 
 const VERSION = config?.package?.version
-const TAG = '' // TODO: we need to get the tag somehow...
+const TAG = 'untagged-3c1507b2d46ce658c719' // TODO: we need to get the tag somehow...
 const GH_WORKSPACE_PATH = process.env.GITHUB_WORKSPACE
 const releaseId = process.env.RELEASE_ID
 const releaseUrl = process.env.RELEASE_URL
@@ -35,6 +35,8 @@ function main() {
 	const fileName = GH_WORKSPACE_PATH ? join(GH_WORKSPACE_PATH, FILE_PATH) : FILE_PATH
 
 	console.log('fileName: ', fileName)
+	console.log('releaseId: ', releaseId)
+	console.log('releaseUrl: ', releaseUrl)
 
 	fs.writeFileSync(fileName, JSON.stringify(updater, null, 2))
 }

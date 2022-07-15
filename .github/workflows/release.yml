@@ -36,7 +36,7 @@ jobs:
         run: yarn && yarn build
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
-      - name: create release
+      - name: Create release
         id: create-release
         uses: tauri-apps/tauri-action@v0
         env:
