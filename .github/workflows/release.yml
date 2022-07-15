@@ -9,25 +9,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        platform: [macos-latest, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v2
-      - name: setup node
+      - name: Setup node
         uses: actions/setup-node@v1
         with:
           node-version: 18
-      - name: install Rust stable
+      - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - name: install dependencies (ubuntu only)
+      - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
-      - name: install app dependencies and build
+      - name: Install app dependencies and build
         run: yarn && yarn build
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
@@ -41,3 +41,14 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
+      - name: Generate updater json
+        run: yarn updater:gen
+        env:
+          APP_VERSION: __VERSION__
+      - uses: actions/checkout@v3
+      - name: Deploy updater JSON
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ secrets.UPDATER_ID }}
+          file_path: updater.json

@@ -63,7 +63,7 @@
 		},
 		"updater": {
 			"active": true,
-			"endpoints": [],
+			"endpoints": ["https://gist.github.com/madze/09179963c78810b2a962f9dbba9aac62"],
 			"dialog": true,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBMTdFMzlGQTZBMDA5RjcKUldUM0NhQ21uK01YdXNvUDIwVGgzY05FeElpUENiMVMrOUZ3c1pCbW9teTBRY0k0d01KUnR6VkoK"
 		},
