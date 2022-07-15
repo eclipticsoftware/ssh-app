@@ -49,7 +49,7 @@ jobs:
           file_path: updater.json
       - name: create release
         id: create-release
-      - uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
