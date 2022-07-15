@@ -34,19 +34,6 @@ jobs:
         run: yarn && yarn build
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
-      - name: Generate updater json
-        run: yarn updater:gen
-        env:
-          FA_TOKEN: ${{ secrets.FA_TOKEN }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
-          RELEASE_URL: ${{ needs.create-release.outputs.release_url }}
-      - name: Deploy updater JSON
-        uses: exuanbo/actions-deploy-gist@v1
-        with:
-          token: ${{ secrets.GIST_TOKEN }}
-          gist_id: ${{ secrets.UPDATER_ID }}
-          file_path: updater.json
       - name: create release
         id: create-release
         uses: tauri-apps/tauri-action@v0
@@ -60,3 +47,16 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
+       - name: Generate updater json
+        run: yarn updater:gen
+        env:
+          FA_TOKEN: ${{ secrets.FA_TOKEN }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          RELEASE_URL: ${{ needs.create-release.outputs.release_url }}
+      - name: Deploy updater JSON
+        uses: exuanbo/actions-deploy-gist@v1
+        with:
+          token: ${{ secrets.GIST_TOKEN }}
+          gist_id: ${{ secrets.UPDATER_ID }}
+          file_path: updater.json
