@@ -93,7 +93,7 @@ jobs:
               repo: context.repo.repo,
               release_id: process.env.release_id,
               draft: false,
-              prerelease: false
+              prerelease: true
             })
 
   update-latest:
@@ -110,7 +110,7 @@ jobs:
           node-version: 18
 
       - name: Update latest json
-        run: yarn release:gen
+        run: yarn latest:gen
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -8,7 +8,6 @@ const { getOctokit, context } = require('@actions/github')
 const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8'))
 
 const VERSION = config?.package?.version
-const TAG = 'untagged-3c1507b2d46ce658c719' // TODO: we need to get the tag somehow...
 const latestFilename = 'latest.json'
 
 async function main() {
@@ -91,9 +90,8 @@ async function main() {
 
 	// const fileName = GH_WORKSPACE_PATH ? join(GH_WORKSPACE_PATH, latestFilename) : latestFilename
 
-	console.log('fileName: ', fileName)
-	console.log('releaseId: ', releaseId)
-	console.log('releaseUrl: ', releaseUrl)
+	console.log('downloadUrl: ', downloadUrl)
+	console.log('latestFilePath: ', latestFilePath)
 
 	fs.writeFileSync(latestFilePath, JSON.stringify(latest, null, 2))
 
