@@ -49,16 +49,20 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      - name: Generate updater json
-        run: yarn updater:gen
+  update-latest:
+    needs: create-release
+    strategy:
+      fail-fast: false
+
+    steps:
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 18
+
+      - name: Update latest json
+        run: yarn release:gen
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
-
-      - name: Deploy updater JSON
-        uses: exuanbo/actions-deploy-gist@v1
-        with:
-          token: ${{ secrets.GIST_TOKEN }}
-          gist_id: ${{ secrets.UPDATER_ID }}
-          file_path: updater.json
