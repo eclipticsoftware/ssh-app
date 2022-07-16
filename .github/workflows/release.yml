@@ -97,12 +97,13 @@ jobs:
             })
 
   update-latest:
-    needs: create-release
+    needs: [create-release, build-tauri]
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v2
       - name: Setup node
         uses: actions/setup-node@v1
         with:
