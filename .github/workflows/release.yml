@@ -53,6 +53,7 @@ jobs:
     needs: create-release
     strategy:
       fail-fast: false
+    runs-on: ubuntu-latest
 
     steps:
       - name: Setup node
