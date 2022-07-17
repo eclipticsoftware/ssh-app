@@ -1,6 +1,5 @@
 const fs = require('fs')
 const path = require('path')
-const { arch, platform } = require('os')
 require('dotenv').config()
 
 const { getOctokit, context } = require('@actions/github')
@@ -9,6 +8,12 @@ const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8')
 
 const VERSION = config?.package?.version
 const latestFilename = 'latest.json'
+
+/**
+ *  This was built based on a pull request that is currently waiting to be added to the tauri action project:
+ *  Pull request: https://github.com/tauri-apps/tauri-action/pull/287/commits/0ebff2eb06ee1261374570118d59970522dac955
+ *  NOTE: This may not be necessary once the PR has been accepted and merged.
+ * */
 
 async function main() {
 	const TOKEN = process.env.GITHUB_TOKEN
@@ -54,45 +59,39 @@ async function main() {
 		release_id: releaseId,
 	})
 
-	const asset = assets.data.find(e => e.name === latestFilename)
+	const macUrl = assets.data
+		// .filter(e => assetNames.has(e.name))
+		.find(s => s?.name?.endsWith('.tar.gz'))?.browser_download_url
 
-	if (asset) {
-		latest.platforms = (await (await fetch(asset.browser_download_url)).json()).platforms
+	const windowsUrl = assets.data
+		// .filter(e => assetNames.has(e.name))
+		.find(s => s?.name?.endsWith('.zip'))?.browser_download_url
 
-		console.log(`${latest.platforms?.length} platforms found on existing asset`)
+	if (macUrl) {
+		const macSigFile = assets.data.find(s => s?.name?.endsWith('.gz.sig'))
+		const macPlatform = {
+			signature: macSigFile ? fs.readFileSync(macSigFile).toString() : undefined,
+			url: macUrl,
+		}
 
-		// https://docs.github.com/en/rest/releases/assets#update-a-release-asset
-		await github.rest.repos.deleteReleaseAsset({
-			owner: context.repo.owner,
-			repo: context.repo.repo,
-			release_id: releaseId,
-			asset_id: asset.id,
-		})
+		latest.platforms[`darwinx86_64`] = macPlatform
+		latest.platforms[`darwinaarch64`] = macPlatform
 	}
 
-	const downloadUrl = assets.data
-		// .filter(e => assetNames.has(e.name))
-		.find(s => s?.name?.endsWith('.tar.gz') || s?.name?.endsWith('.zip'))?.browser_download_url
-
-	if (downloadUrl) {
-		// https://github.com/tauri-apps/tauri/blob/fd125f76d768099dc3d4b2d4114349ffc31ffac9/core/tauri/src/updater/core.rs#L856
-		latest.platforms[
-			`${platform().replace('win32', 'windows')}-${arch()
-				.replace('arm64', 'aarch64')
-				.replace('x64', 'x86_64')
-				.replace('amd64', 'x86_64')
-				.replace('arm', 'armv7')
-				.replace('x32', 'i686')}`
-		] = {
-			// signature: sigFile ? readFileSync(sigFile).toString() : undefined, // TODO: implement this once we figure out how to get artifacts in here
-			signature: '',
-			url: downloadUrl,
+	if (windowsUrl) {
+		const winSigFile = assets.data.find(s => s?.name?.endsWith('.zip.sig'))
+		const winPlatform = {
+			signature: winSigFile ? fs.readFileSync(winSigFile).toString() : undefined,
+			url: windowsUrl,
 		}
+
+		latest.platforms[`windowsx86_64`] = winPlatform
 	}
 
 	// const fileName = GH_WORKSPACE_PATH ? join(GH_WORKSPACE_PATH, latestFilename) : latestFilename
 
-	console.log('downloadUrl: ', downloadUrl)
+	console.log('macUrl: ', macUrl)
+	console.log('windowsUrl: ', windowsUrl)
 	console.log('latestFilePath: ', latestFilePath)
 
 	fs.writeFileSync(latestFilePath, JSON.stringify(latest, null, 2))
@@ -101,29 +100,31 @@ async function main() {
 	 *  Upload file
 	 * */
 
-	const contentLength = filePath => fs.statSync(filePath).size
+	// ! We will store this in a gist not in the release
 
-	const headers = {
-		'content-type': 'application/zip',
-		'content-length': contentLength(latestFilePath),
-	}
+	// const contentLength = filePath => fs.statSync(filePath).size
 
-	const ext = path.extname(latestFilePath)
-	const filename = path.basename(latestFilePath).replace(ext, '')
-	const assetName = path.dirname(latestFilePath).includes(`target${path.sep}debug`)
-		? `${filename}-debug${ext}`
-		: `${filename}${ext}`
-	console.log(`Uploading ${assetName}...`)
-	await github.rest.repos.uploadReleaseAsset({
-		headers,
-		name: assetName,
-		// https://github.com/tauri-apps/tauri-action/pull/45
-		// @ts-ignore error TS2322: Type 'Buffer' is not assignable to type 'string'.
-		data: fs.readFileSync(latestFilePath),
-		owner: context.repo.owner,
-		repo: context.repo.repo,
-		release_id: releaseId,
-	})
+	// const headers = {
+	// 	'content-type': 'application/zip',
+	// 	'content-length': contentLength(latestFilePath),
+	// }
+
+	// const ext = path.extname(latestFilePath)
+	// const filename = path.basename(latestFilePath).replace(ext, '')
+	// const assetName = path.dirname(latestFilePath).includes(`target${path.sep}debug`)
+	// 	? `${filename}-debug${ext}`
+	// 	: `${filename}${ext}`
+	// console.log(`Uploading ${assetName}...`)
+	// await github.rest.repos.uploadReleaseAsset({
+	// 	headers,
+	// 	name: assetName,
+	// 	// https://github.com/tauri-apps/tauri-action/pull/45
+	// 	// @ts-ignore error TS2322: Type 'Buffer' is not assignable to type 'string'.
+	// 	data: fs.readFileSync(latestFilePath),
+	// 	owner: context.repo.owner,
+	// 	repo: context.repo.repo,
+	// 	release_id: releaseId,
+	// })
 }
 
 main()
@@ -134,5 +135,4 @@ main()
 // Windows download link:
 // https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-3c1507b2d46ce658c719/ssh-app_0.0.1_x64_en-US.msi
 
-// Latest.json
-// https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-86ac4099f7d9d32a510a/latest.json
+// NOTE: can't rely on storing the latest.json in the release because the url will change with each release - SOLUTION: we should store it in a gist
