@@ -3,9 +3,13 @@ use std::process;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use regex::Regex;
+use string_join::Join;
 
 /// Defines the necessary interface that a child process type must support to be used by the tunnel library
 pub trait ChildProc {
@@ -42,8 +46,10 @@ where
 {
     let tunnel = T::new(config)?;
     if let Some(status) = tunnel.clone().lock().unwrap().wait_for_start() {
+        println!("Failed to start: {:?}", status);
         Err(status)
     } else {
+        println!("Started");
         Ok(tunnel)
     }
 }
@@ -59,10 +65,11 @@ where
     F: FnOnce(SshStatus) + Send,
 {
     let exit_status: ExitCondition;
-
+    println!("Watching");
     loop {
         let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
         if let Some(status) = tunnel.exited() {
+            println!("Tunnel exited: {:?}", status);
             exit_status = status;
             break;
         }
@@ -101,15 +108,37 @@ pub struct TunnelChild {
 }
 
 impl ChildProc for TunnelChild {
+
+    #[cfg(not(target_os = "windows"))]
     fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
         let child = process::Command::new("ssh")
             .args(config.to_args())
-            .env_clear()
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .spawn()
             .map_err(|err| SshStatus::ProcError(err.to_string()))?;
 
+        println!("Child spawned");
+        Ok(Arc::new(Mutex::new(TunnelChild { child })))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+        let mut cmd = process::Command::new("ssh");
+
+        for arg in config.to_args() {
+            cmd.raw_arg(arg);
+        }
+
+        cmd.stdout(process::Stdio::piped())
+            .stderr(process::Stdio::piped());
+
+        println!("Command: {:?}", cmd);
+
+        let child = cmd.spawn()
+            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+
+        println!("Child spawned");
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
@@ -123,12 +152,15 @@ impl ChildProc for TunnelChild {
             Ok(len) => len,
         };
 
+        println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
         if len < 15 {
             let mut stderr = self.child.stderr.take().unwrap();
             let mut err_msg = String::new();
             stderr.read_to_string(&mut err_msg).unwrap();
+            println!("Error while waiting for start: {err_msg}");
             Some(SshStatus::from_stderr(&err_msg))
         } else {
+            println!("Started");
             None
         }
     }
@@ -158,7 +190,7 @@ impl ChildProc for TunnelChild {
         let mut err_msg = String::new();
         stderr.read_to_string(&mut err_msg).unwrap();
 
-        println!("Error: {}", err_msg);
+        println!("Error: {err_msg}");
         SshStatus::from_stderr(&err_msg)
     }
 
@@ -244,7 +276,7 @@ impl SshStatus {
 }
 
 /// Defines the set of exit conditions for the tunnel process
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug)]
 pub enum ExitCondition {
     /// The tunnel exited cleanly. This actualy will only happen if something
     /// goes wrong. A successful tunnel must be killed, which will result in
@@ -339,6 +371,7 @@ impl SshConfig {
             .collect::<Vec<String>>(),
         );
 
+        println!("Args: {:?}", args);
         args
     }
 }

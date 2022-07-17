@@ -141,7 +141,10 @@ impl ChildProc for TauriChild {
     fn wait_for_start(&mut self) -> Option<SshStatus> {
         let mut len = 0;
         if let Some(line) = self.read_stdout_line() {
+            println!("Received stdout: {line}");
             len = line.len();
+        } else {
+            println!("Failed to capture stdout");
         }
 
         if len < 15 {
@@ -240,7 +243,7 @@ impl UserSettings<'_> {
             port,
             5432,
             10,
-            &["-T"],
+            &["-vvv", "-T"],
         ))
     }
 }
