@@ -69,8 +69,8 @@ async function main() {
 	}
 
 	const downloadUrl = assets.data
-		.filter(e => assetNames.has(e.name))
-		.find(s => s.name.endsWith('.tar.gz') || s.name.endsWith('.zip'))?.browser_download_url
+		// .filter(e => assetNames.has(e.name))
+		.find(s => s?.name?.endsWith('.tar.gz') || s?.name?.endsWith('.zip'))?.browser_download_url
 
 	if (downloadUrl) {
 		// https://github.com/tauri-apps/tauri/blob/fd125f76d768099dc3d4b2d4114349ffc31ffac9/core/tauri/src/updater/core.rs#L856
