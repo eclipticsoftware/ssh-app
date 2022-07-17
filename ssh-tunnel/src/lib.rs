@@ -174,7 +174,6 @@ impl ChildProc for TunnelChild {
     }
 }
 
-
 /// Defines the set of statuses that ssh tunnel can have
 #[derive(Debug, Clone)]
 pub enum SshStatus {
@@ -244,11 +243,9 @@ impl SshStatus {
     }
 }
 
-
 /// Defines the set of exit conditions for the tunnel process
 #[derive(FromPrimitive)]
 pub enum ExitCondition {
-
     /// The tunnel exited cleanly. This actualy will only happen if something
     /// goes wrong. A successful tunnel must be killed, which will result in
     /// an SshError or a Canceled condition.

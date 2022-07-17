@@ -3,17 +3,25 @@
     windows_subsystem = "windows"
 )]
 
+use std::mem;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{thread, time::Duration};
 
+//use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
 use serde::Deserialize;
+use tauri::api::process::{Command, CommandChild, CommandEvent};
+use tauri::async_runtime::{block_on, Receiver};
 use tauri::command;
-use tauri::{window::Window, State, RunEvent};
+use tauri::{window::Window, RunEvent, State};
+
+use tokio::sync::mpsc::error::TryRecvError;
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
-use ssh_tunnel::{SshConfig, SshHandle, SshStatus, SshTunnel};
+use ssh_tunnel::{ChildProc, ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel};
 
 fn main() {
     let context = Context::new();
@@ -34,7 +42,7 @@ fn main() {
 
     let ctx_app = context.clone();
     app.run(move |_app_handle, event| {
-        if let RunEvent::ExitRequested {api: _, ..} = event {
+        if let RunEvent::ExitRequested { api: _, .. } = event {
             println!("Exiting app...");
             kill_tunnel(ctx_app.clone());
         }
@@ -42,7 +50,7 @@ fn main() {
 }
 
 struct ContextInner {
-    tunnel: Option<SshTunnel>,
+    tunnel: Option<SshTunnel<TauriChild>>,
     //handle: Option<JoinHandle<(SshStatus, ExitStatus)>>,
     window: Option<Window>,
 }
@@ -73,6 +81,146 @@ impl Context {
     }
 }
 
+struct TauriChild {
+    child: Option<CommandChild>,
+    rx: Receiver<CommandEvent>,
+    stderr: String,
+}
+
+impl TauriChild {
+    fn read_stdout_line(&mut self) -> Option<String> {
+        while let Some(event) = block_on(self.rx.recv()) {
+            match event {
+                CommandEvent::Stdout(line) => return Some(line),
+                CommandEvent::Stderr(line) => {
+                    println!("Got stderr: {line}");
+                    self.stderr.push_str(&line);
+                }
+                _ => {
+                    println!("Got other event: {:?}", event);
+                }
+            }
+        }
+        None
+    }
+
+    /// Capture remaining stderr data and return it
+    fn read_stderr(&mut self) -> Option<String> {
+        println!("Reading stderr: so far we have:");
+        println!("{}", self.stderr);
+        while let Some(event) = block_on(self.rx.recv()) {
+            if let CommandEvent::Stdout(line) = event {
+                self.stderr.push_str(&line);
+            }
+        }
+        if !self.stderr.is_empty() {
+            Some(self.stderr.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl ChildProc for TauriChild {
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+        let (rx, child) = Command::new("ssh")
+            .args(config.to_args())
+            .env_clear()
+            .spawn()
+            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+
+        Ok(Arc::new(Mutex::new(TauriChild {
+            child: Some(child),
+            rx,
+            stderr: String::new(),
+        })))
+    }
+
+    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
+    // or throw an error if it fails to happen
+    fn wait_for_start(&mut self) -> Option<SshStatus> {
+        let mut len = 0;
+        if let Some(line) = self.read_stdout_line() {
+            len = line.len();
+        }
+
+        if len < 15 {
+            if let Some(err_msg) = self.read_stderr() {
+                Some(SshStatus::from_stderr(&err_msg))
+            } else {
+                Some(SshStatus::ProcError("Failed to capture stderr".to_string()))
+            }
+        } else {
+            None
+        }
+    }
+
+    fn exited(&mut self) -> Option<ExitCondition> {
+        match self.rx.try_recv() {
+            Ok(event) => match event {
+                CommandEvent::Stderr(line) => {
+                    println!("Got stderr: {line}");
+                    self.stderr.push_str(&line);
+                    None
+                }
+                CommandEvent::Stdout(line) => {
+                    println!("Stdout: {line}");
+                    None
+                }
+                CommandEvent::Error(err) => {
+                    println!("Command error: {err}");
+                    Some(ExitCondition::ProcError)
+                }
+                CommandEvent::Terminated(payload) => {
+                    println!("Termination payload: {:?}", payload);
+                    if let Some(code) = payload.code {
+                        Some(FromPrimitive::from_i32(code).expect("Exit code should always be i32"))
+                    } else {
+                        Some(ExitCondition::ProcError)
+                    }
+                }
+                _ => {
+                    println!("Unknown event: {:?}", event);
+                    Some(ExitCondition::ProcError)
+                }
+            },
+            Err(TryRecvError::Empty) => {
+                //println!("Empty event buffer");
+                None
+            }
+            Err(TryRecvError::Disconnected) => {
+                println!("Disconnected without notice");
+                Some(ExitCondition::ProcError)
+            }
+        }
+    }
+
+    //Capture stderr to discover exit reason
+    fn exit_status(&mut self) -> SshStatus {
+        if let Some(err_msg) = self.read_stderr() {
+            println!("Error: {}", err_msg);
+            SshStatus::from_stderr(&err_msg)
+        } else {
+            SshStatus::ProcError("Failed to capture stderr".to_string())
+        }
+    }
+
+    fn kill(&mut self) {
+        let mut child: Option<CommandChild> = None;
+        mem::swap(&mut child, &mut self.child);
+        if let Some(child) = child {
+            match child.kill() {
+                Ok(_) => {
+                    println!("killed");
+                }
+                Err(err) => {
+                    println!("Not killed: {err}")
+                }
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct UserSettings<'a> {
     host: &'a str,
@@ -83,7 +231,6 @@ struct UserSettings<'a> {
 
 impl UserSettings<'_> {
     fn to_config(&self) -> Result<SshConfig, std::num::ParseIntError> {
-
         let port = self.port.parse()?;
         Ok(SshConfig::new(
             self.host,
@@ -93,7 +240,7 @@ impl UserSettings<'_> {
             port,
             5432,
             10,
-            &["-t", "-t"],
+            &["-T"],
         ))
     }
 }
@@ -101,14 +248,12 @@ impl UserSettings<'_> {
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
     let config = match settings.to_config() {
-        Ok(cfg) => {
-            cfg
-        },
+        Ok(cfg) => cfg,
         Err(_err) => {
             return SshStatus::ConfigError("Illegal port value".to_string()).to_signal();
         }
     };
-    
+
     println!("Starting tunnel: {:?}", settings);
     let result = spawn_new_tunnel(config, (*context).clone());
     manage_spawn_result(result, (*context).clone())
@@ -117,22 +262,21 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
 fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
-) -> Result<(SshTunnel, SshHandle), SshStatus> {
+) -> Result<(SshTunnel<TauriChild>, SshHandle), SshStatus> {
     let context_thread = context.clone();
     println!("Spawning new tunnel");
     ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
         println!("Status: {:?}", status);
         let status = match status {
-            SshStatus::Dropped => { // Attempt to reconnect in separate thread
+            SshStatus::Dropped => {
+                // Attempt to reconnect in separate thread
                 let context_retry = context_thread.clone();
                 thread::spawn(move || {
                     attempt_reconnect(config, context_retry, 5);
                 });
-                SshStatus::Retrying
-            },
-            _ => {
-                status
+                SshStatus::Reconnecting
             }
+            _ => status,
         };
 
         let ctxt = context_thread.lock();
@@ -145,7 +289,7 @@ fn spawn_new_tunnel(
 }
 
 fn manage_spawn_result(
-    result: Result<(SshTunnel, SshHandle), SshStatus>,
+    result: Result<(SshTunnel<TauriChild>, SshHandle), SshStatus>,
     context: Context,
 ) -> String {
     println!("Tunnel spawned");
@@ -192,14 +336,7 @@ fn kill_tunnel(context: Context) {
     }
     println!("Killing tunnel");
     let mut tunnel = context.tunnel.as_ref().unwrap().lock().unwrap();
-    match tunnel.kill() {
-        Ok(_) => {
-            println!("killed");
-        }
-        Err(err) => {
-            println!("Not killed: {err}")
-        }
-    }
+    tunnel.kill();
 }
 
 #[command]
