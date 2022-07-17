@@ -68,9 +68,9 @@ async function main() {
 		.find(s => s?.name?.endsWith('.zip'))?.browser_download_url
 
 	if (macUrl) {
-		const macSigFile = assets.data.find(s => s?.name?.endsWith('.gz.sig'))
+		const macSigFile = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.browser_download_url
 		const macPlatform = {
-			signature: macSigFile ? fs.readFileSync(macSigFile).toString() : undefined,
+			signature: macSigFile ? await fetch(macSigFile).toString() : undefined,
 			url: macUrl,
 		}
 
@@ -79,9 +79,9 @@ async function main() {
 	}
 
 	if (windowsUrl) {
-		const winSigFile = assets.data.find(s => s?.name?.endsWith('.zip.sig'))
+		const winSigFile = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.browser_download_url
 		const winPlatform = {
-			signature: winSigFile ? fs.readFileSync(winSigFile).toString() : undefined,
+			signature: winSigFile ? await fetch(winSigFile).toString() : undefined,
 			url: windowsUrl,
 		}
 
