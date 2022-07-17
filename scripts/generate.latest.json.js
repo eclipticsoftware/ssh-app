@@ -59,6 +59,8 @@ async function main() {
 	if (asset) {
 		latest.platforms = (await (await fetch(asset.browser_download_url)).json()).platforms
 
+		console.log(`${latest.platforms?.length} platforms found on existing asset`)
+
 		// https://docs.github.com/en/rest/releases/assets#update-a-release-asset
 		await github.rest.repos.deleteReleaseAsset({
 			owner: context.repo.owner,
@@ -131,3 +133,6 @@ main()
 
 // Windows download link:
 // https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-3c1507b2d46ce658c719/ssh-app_0.0.1_x64_en-US.msi
+
+// Latest.json
+// https://github.com/eclipticsoftware/ssh-app/releases/download/untagged-86ac4099f7d9d32a510a/latest.json
