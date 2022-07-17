@@ -1,5 +1,5 @@
 {
-	"name": "ssh-app",
+	"name": "ecliptic-ssh-app",
 	"version": "0.0.1",
 	"private": true,
 	"dependencies": {
