@@ -83,6 +83,7 @@ async function main() {
 			: null
 
 		console.log('typeof macSignFile: ', typeof macSigFile)
+		console.log(macSigFile.data)
 
 		const macPlatform = {
 			signature: macSigFile ? macSigFile : undefined,
@@ -95,7 +96,7 @@ async function main() {
 
 	if (windowsUrl) {
 		const winSigAssetId = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.id
-		const winSigFile = macSigAssetId
+		const winSigFile = winSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
 						Accept: 'application/json',
