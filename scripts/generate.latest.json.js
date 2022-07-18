@@ -92,12 +92,12 @@ async function main() {
 			  })
 			: null
 
-		const sig = await bufferToString(result.data)
+		const sig = result?.data ? await bufferToString(result.data) : undefined
 
 		console.log('Mac sig: ', sig)
 
 		const macPlatform = {
-			signature: buffer || undefined,
+			signature: buffer,
 			url: macUrl,
 		}
 
@@ -118,12 +118,12 @@ async function main() {
 			  })
 			: null
 
-		const sig = await bufferToString(result.data)
+		const sig = result?.data ? await bufferToString(result.data) : undefined
 
 		console.log('Windows sig: ', sig)
 
 		const winPlatform = {
-			signature: sig || undefined,
+			signature: sig,
 			url: windowsUrl,
 		}
 
