@@ -93,7 +93,7 @@ jobs:
               repo: context.repo.repo,
               release_id: process.env.release_id,
               draft: false,
-              prerelease: true
+              prerelease: false
             })
 
   update-latest:
