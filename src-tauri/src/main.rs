@@ -243,7 +243,7 @@ impl UserSettings<'_> {
             port,
             5432,
             10,
-            &["-vvv", "-T"],
+            &["-T"],
         ))
     }
 }
@@ -267,7 +267,6 @@ fn spawn_new_tunnel(
     context: Context,
 ) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
     let context_thread = context.clone();
-    println!("Spawning new tunnel");
     ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
         println!("Status: {:?}", status);
         let status = match status {
@@ -295,11 +294,9 @@ fn manage_spawn_result(
     result: Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus>,
     context: Context,
 ) -> String {
-    println!("Tunnel spawned");
     let mut ctxt = context.lock();
     let status_signal = match result {
         Ok((tnl, _hndl)) => {
-            println!("Tunnel running");
             ctxt.tunnel = Some(tnl);
             //ctxt.handle = Some(hndl);
             SshStatus::Connected.to_signal()

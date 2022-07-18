@@ -46,10 +46,8 @@ where
 {
     let tunnel = T::new(config)?;
     if let Some(status) = tunnel.clone().lock().unwrap().wait_for_start() {
-        println!("Failed to start: {:?}", status);
         Err(status)
     } else {
-        println!("Started");
         Ok(tunnel)
     }
 }
@@ -65,11 +63,9 @@ where
     F: FnOnce(SshStatus) + Send,
 {
     let exit_status: ExitCondition;
-    println!("Watching");
     loop {
         let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
         if let Some(status) = tunnel.exited() {
-            println!("Tunnel exited: {:?}", status);
             exit_status = status;
             break;
         }
@@ -118,7 +114,6 @@ impl ChildProc for TunnelChild {
             .spawn()
             .map_err(|err| SshStatus::ProcError(err.to_string()))?;
 
-        println!("Child spawned");
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
@@ -130,15 +125,11 @@ impl ChildProc for TunnelChild {
             cmd.raw_arg(arg);
         }
 
-        cmd.stdout(process::Stdio::piped())
-            .stderr(process::Stdio::piped());
-
-        println!("Command: {:?}", cmd);
-
-        let child = cmd.spawn()
+        let child =cmd.stdout(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
+            .spawn()
             .map_err(|err| SshStatus::ProcError(err.to_string()))?;
 
-        println!("Child spawned");
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
@@ -152,15 +143,13 @@ impl ChildProc for TunnelChild {
             Ok(len) => len,
         };
 
-        println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
+        //println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
         if len < 15 {
             let mut stderr = self.child.stderr.take().unwrap();
             let mut err_msg = String::new();
             stderr.read_to_string(&mut err_msg).unwrap();
-            println!("Error while waiting for start: {err_msg}");
             Some(SshStatus::from_stderr(&err_msg))
         } else {
-            println!("Started");
             None
         }
     }
@@ -197,10 +186,10 @@ impl ChildProc for TunnelChild {
     fn kill(&mut self) {
         match self.child.kill() {
             Ok(_) => {
-                println!("killed");
+                //println!("killed");
             }
-            Err(err) => {
-                println!("Not killed: {err}")
+            Err(_err) => {
+                //println!("Not killed: {err}")
             }
         }
     }
@@ -375,7 +364,7 @@ impl SshConfig {
             .collect::<Vec<String>>(),
         );
 
-        println!("Args: {:?}", args);
+        //println!("Args: {:?}", args);
         args
     }
 }
