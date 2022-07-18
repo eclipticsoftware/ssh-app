@@ -71,14 +71,19 @@ async function main() {
 		const macSigAssetId = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.id
 		const macSigFile = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
+					headers: {
+						Accept: 'text/plain',
+					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
 					asset_id: macSigAssetId,
 			  })
 			: null
 
+		console.log('typeof macSignFile: ', typeof macSigFile)
+
 		const macPlatform = {
-			signature: macSigFile ? await (await fetch(macSigFile)).text() : undefined,
+			signature: macSigFile ? macSigFile : undefined,
 			url: macUrl,
 		}
 
@@ -90,6 +95,9 @@ async function main() {
 		const winSigAssetId = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.id
 		const winSigFile = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
+					headers: {
+						Accept: 'text/plain',
+					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
 					asset_id: winSigAssetId,
@@ -97,7 +105,7 @@ async function main() {
 			: null
 
 		const winPlatform = {
-			signature: winSigFile ? await (await fetch(winSigFile)).text() : undefined,
+			signature: winSigFile ? winSigFile : undefined,
 			url: windowsUrl,
 		}
 
