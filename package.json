@@ -1,6 +1,6 @@
 {
 	"name": "ecliptic-ssh-app",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"private": true,
 	"dependencies": {
 		"@eclo/mode": "^1.2.8",
