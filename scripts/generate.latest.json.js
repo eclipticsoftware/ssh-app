@@ -118,7 +118,9 @@ async function main() {
 			  })
 			: null
 
-		const sig = result?.data ? await bufferToString(result.data) : undefined
+		const utf8Decoder = new TextDecoder('utf-8')
+
+		const sig = result?.data ? utf8Decoder.decode(result.data) : undefined
 
 		console.log('Windows sig: ', sig)
 
@@ -129,8 +131,6 @@ async function main() {
 
 		latest.platforms[`windowsx86_64`] = winPlatform
 	}
-
-	// const fileName = GH_WORKSPACE_PATH ? join(GH_WORKSPACE_PATH, latestFilename) : latestFilename
 
 	console.log('macUrl: ', macUrl)
 	console.log('windowsUrl: ', windowsUrl)
