@@ -92,14 +92,14 @@ async function main() {
 			  })
 			: null
 
-		console.log('typeof buffer: ', typeof buffer)
+		console.log(buffer)
 
-		const sig = bufferToString(buffer)
+		// const sig = await bufferToString(buffer)
 
-		console.log('sig: ', sig)
+		// console.log('sig: ', sig)
 
 		const macPlatform = {
-			signature: sig || undefined,
+			signature: buffer || undefined,
 			url: macUrl,
 		}
 
@@ -109,16 +109,18 @@ async function main() {
 
 	if (windowsUrl) {
 		const winSigAssetId = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.id
-		const winSigFile = winSigAssetId
+		const buffer = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
-						Accept: 'application/json',
+						Accept: 'application/octet-stream',
 					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
 					asset_id: winSigAssetId,
 			  })
 			: null
+
+		console.log(buffer)
 
 		const winPlatform = {
 			signature: winSigFile ? winSigFile : undefined,
