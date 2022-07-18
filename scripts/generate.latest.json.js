@@ -109,7 +109,7 @@ async function main() {
 
 	if (windowsUrl) {
 		const winSigAssetId = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.id
-		const buffer = macSigAssetId
+		const buffer = winSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
 						Accept: 'application/octet-stream',
