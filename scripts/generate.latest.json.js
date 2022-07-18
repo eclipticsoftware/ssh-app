@@ -70,7 +70,7 @@ async function main() {
 	if (macUrl) {
 		const macSigFile = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.browser_download_url
 		const macPlatform = {
-			signature: macSigFile ? await (await fetch(macSigFile)).body.toString() : undefined,
+			signature: macSigFile ? await (await fetch(macSigFile)).text() : undefined,
 			url: macUrl,
 		}
 
@@ -81,7 +81,7 @@ async function main() {
 	if (windowsUrl) {
 		const winSigFile = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.browser_download_url
 		const winPlatform = {
-			signature: winSigFile ? await (await fetch(winSigFile)).body.toString() : undefined,
+			signature: winSigFile ? await (await fetch(winSigFile)).text() : undefined,
 			url: windowsUrl,
 		}
 
