@@ -95,6 +95,7 @@ const iconLibUtil = {
 	calX: ['fal', 'calendar-times'],
 	pdf: ['fal', 'file-pdf'],
 	file: ['fal', 'file'],
+	connect: ['fal', 'diagram-project'],
 }
 
 const iconLibResource = {

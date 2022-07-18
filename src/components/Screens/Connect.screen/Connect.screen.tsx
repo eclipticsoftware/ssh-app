@@ -12,6 +12,7 @@ import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.fi
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
 import { FormikText } from '../../UI/Formik/Formik.fields/Formik.text'
 import { FormikForm } from '../../UI/Formik/Formik.form'
+import { Icon } from '../../UI/Icon'
 import { Spinner } from '../../UI/Spinner'
 
 export const connectScreenStyles = css`
@@ -79,6 +80,8 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 
 	const error = settingsSaveErr || connectionErr
 
+	console.log('settings: ', settings)
+
 	return (
 		<ConnectScreenView>
 			{settingsErr ? <ErrorBlock error={settingsErr} /> : null}
@@ -98,12 +101,14 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 					<FormikSelectFile name='keyPath' config={{ label: 'SSH Key', isReq: true }} />
 					<hr />
 					{error ? <ErrorBlock error={error} /> : null}
-					{!loading && !settings ? (
+					{!loading && !settings?.host ? (
 						<p className='no-settings-helper-text'>
 							The next time you connect we will save your settings for future connections!
 						</p>
 					) : null}
-					<FormikSubmitBtn>Connect</FormikSubmitBtn>
+					<FormikSubmitBtn>
+						<Icon padRight type='connect' /> Connect
+					</FormikSubmitBtn>
 				</FormikForm>
 			)}
 		</ConnectScreenView>
