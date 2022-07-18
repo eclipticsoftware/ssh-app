@@ -8,7 +8,7 @@
 	},
 	"package": {
 		"productName": "Ecliptic SSH Client",
-		"version": "1.0.0"
+		"version": "1.0.1"
 	},
 	"tauri": {
 		"allowlist": {
@@ -72,7 +72,7 @@
 				"fullscreen": false,
 				"height": 600,
 				"resizable": true,
-				"title": "NNR-SSH",
+				"title": "ECLIPTIC-SSH-CLIENT",
 				"width": 800
 			}
 		]

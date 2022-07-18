@@ -56,7 +56,7 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 					body: 'Settings Saved!',
 				})
 		} catch (err: any) {
-			setSettingsErr(err)
+			setSettingsErr('Unable to find any saved user settings.')
 		}
 		try {
 			const { keyPath, ...data } = vals
@@ -98,6 +98,11 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 					<FormikSelectFile name='keyPath' config={{ label: 'SSH Key', isReq: true }} />
 					<hr />
 					{error ? <ErrorBlock error={error} /> : null}
+					{!loading && !settings ? (
+						<p className='no-settings-helper-text'>
+							The next time you connect we will save your settings for future connections!
+						</p>
+					) : null}
 					<FormikSubmitBtn>Connect</FormikSubmitBtn>
 				</FormikForm>
 			)}

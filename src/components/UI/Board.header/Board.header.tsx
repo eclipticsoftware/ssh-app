@@ -114,7 +114,7 @@ export const BoardHeader = ({ status }: BoardHeaderProps): JSX.Element => {
 	return (
 		<BoardHeaderView>
 			<Icon type='ssh' />
-			<h2>NNR SSH CLIENT</h2>
+			<h2>ECLIPTIC SSH CLIENT</h2>
 			<div className='status-info'>
 				<h5>Status:</h5>
 
