@@ -1,36 +1,40 @@
 use clap::Parser;
 
-use ssh_tunnel::{SshConfig, SshStatus, ExitStatus};
+use ssh_tunnel::{SshConfig, SshStatus, TunnelChild, SshTunnel, SshHandle, ExitCondition};
+use ssh_tunnel::ChildProc;
 
 fn main() -> Result<(), i32> {
 
     let args = Args::parse();
     let config = args.to_config();
-    let (tun_proc, hndl) = ssh_tunnel::start_and_watch_ssh_tunnel(config, move |status| {
+
+    let exit_callback = move |status| {
         println!("Status: {:?}", status);
         match status {
             SshStatus::Dropped => println!("Dropped connection"),
             SshStatus::Unreachable => println!("Unreachable"),
-            SshStatus::Exited => println!("Exited cleanly"),
+            SshStatus::Disconnected => println!("Disconnected cleanly"),
             _ => println!("Unsupported status: {:?}", status)
         }
-    }).map_err(
-        |err| {
-            println!("Failed to create tunnel: {:?}", err);
-            ExitStatus::SshError as i32
+    };
+
+    let tunnel: SshTunnel<TunnelChild>;
+    let handle: SshHandle;
+    match ssh_tunnel::start_and_watch_ssh_tunnel(config, exit_callback) {
+        Ok((tnl, hndl)) => {
+            tunnel = tnl;
+            handle = hndl;
         }
-    )?;
+        Err(err) => {
+            println!("Failed to create tunnel: {:?}", err);
+            return Err(ExitCondition::SshError as i32)
+        }
+    }
 
     ctrlc::set_handler(move || {
         println!("\n\nClosing tunnel");
-        let mut tun_proc = tun_proc.lock().unwrap();
-        match tun_proc.kill() {
-            Ok(_) => {
-                println!("killed");
-            },
-            Err(err) => {println!("Not killed: {err}")}
-        }
-
+        let mut tunnel = tunnel.lock().unwrap();
+        tunnel.kill();
     }).map_err(
         |err| {
             println!("Failed to set handler: {:?}", err);
@@ -39,9 +43,9 @@ fn main() -> Result<(), i32> {
     )?;
 
     println!("SSH tunnel started");
-    let (ssh_status, exit_status) = hndl.join().unwrap();
+    let (ssh_status, exit_status) = handle.join().unwrap();
     match ssh_status {
-        SshStatus::Exited => Ok(()),
+        SshStatus::Disconnected => Ok(()),
         _ => Err(exit_status as i32)
     }
 }

@@ -1,92 +1,93 @@
 use std::io::Read;
-use std::process::{Child, Command, Stdio};
+use std::process;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-use regex::Regex;
-use num_traits::FromPrimitive;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+use regex::Regex;
 
-pub type SshTunnel = Arc<Mutex<Child>>;
-pub type SshHandle = thread::JoinHandle<(SshStatus, ExitStatus)>;
+/// Defines the necessary interface that a child process type must support to be used by the tunnel library
+pub trait ChildProc {
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus>;
 
-pub fn ssh_watch_loop<F>(tunnel: SshTunnel, exit_callback: F) -> (SshStatus, ExitStatus)
-where
-    F: FnOnce(SshStatus) + Send,
-{
-    let exit_status: ExitStatus;
+    /// Waits for the child process to start (or fail to start)
+    fn wait_for_start(&mut self) -> Option<SshStatus>;
 
-    loop {
-        let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
-        match tunnel.try_wait() {
-            Ok(Some(status)) => {
-                println!("exited with {status}");
-                exit_status = if let Some(code) = status.code() {
-                     FromPrimitive::from_i32(code).unwrap()
-                } else {
-                    ExitStatus::Canceled
-                };
-                break;
-            }
-            Ok(None) => (),
-            Err(e) => {
-                println!("error attempting to wait: {e}");
-                exit_status = ExitStatus::ProcError;
-                break;
-            }
-        }
-        thread::sleep(Duration::from_millis(100));
-    }
+    /// Checks whether the process has exited. If it has, then it returns the ExitCondition
+    fn exited(&mut self) -> Option<ExitCondition>;
 
-    // Capture stderr to discover exit reason
-    let mut stderr = {
-        tunnel.lock().unwrap().stderr.take().unwrap()
-    };
+    /// Captures the exit reason from the process and returns the corresponding SshStatus
+    fn exit_status(&mut self) -> SshStatus;
 
-    let mut err_msg = String::new();
-    stderr.read_to_string(&mut err_msg).unwrap();
-
-    println!("Error: {}", err_msg);
-    let ssh_status = parse_stderr(&err_msg);
-    exit_callback(ssh_status.clone());
-    (ssh_status, exit_status)
+    /// Kills the process
+    fn kill(&mut self);
 }
 
-pub fn start_ssh_tunnel(config: SshConfig) -> Result<SshTunnel, SshStatus> {
-    let mut proc = Command::new("ssh")
-        .args(config.to_args())
-        .env_clear()
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn().map_err(|err| {
-            SshStatus::ProcError(err.to_string())
-        })?;
+/// A thread-safe wrapper for a tunnel process
+pub type SshTunnel<T> = Arc<Mutex<T>>;
 
+/// A process-watching thread handle
+pub type SshHandle = thread::JoinHandle<(SshStatus, ExitCondition)>;
 
-    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
-    // or throw an error if it fails to happen
-    let mut stdout = proc.stdout.take().unwrap();
-    let mut buffer = [0; 15];
-    let len = stdout.read(&mut buffer).map_err(|err| {
-        SshStatus::ProcError(err.to_string())
-    })?;
-
-    if len < 15 {
-        let mut stderr = proc.stderr.take().unwrap();
-        let mut err_msg = String::new();
-        stderr.read_to_string(&mut err_msg).unwrap();
-        Err(parse_stderr(&err_msg))
+/// Starts a tunnel process
+///
+/// # Returns
+///
+/// Returns a result with the tunnel process if it was successfully spawned, and with a status
+/// giving the reason for the failure if not.
+pub fn start_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>, SshStatus>
+where
+    T: ChildProc,
+{
+    let tunnel = T::new(config)?;
+    if let Some(status) = tunnel.clone().lock().unwrap().wait_for_start() {
+        Err(status)
     } else {
-        let tunnel = Arc::new(Mutex::new(proc));
         Ok(tunnel)
     }
 }
 
-pub fn start_and_watch_ssh_tunnel<F>(
+/// Watches a tunnel process and calls the given callback when it exits
+///
+/// # Returns
+///
+/// Returns a tuple containing the SshStatus and the ExitCondition
+pub fn ssh_watch_loop<T, F>(tunnel: SshTunnel<T>, exit_callback: F) -> (SshStatus, ExitCondition)
+where
+    T: ChildProc,
+    F: FnOnce(SshStatus) + Send,
+{
+    let exit_status: ExitCondition;
+    loop {
+        let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
+        if let Some(status) = tunnel.exited() {
+            exit_status = status;
+            break;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    let ssh_status = tunnel.lock().unwrap().exit_status();
+    exit_callback(ssh_status.clone());
+    (ssh_status, exit_status)
+}
+
+/// Starts a tunnel process and a watcher thread
+///
+/// # Returns
+///
+/// If the spawn was successful, it returns a tuple containing the SshStatus and the ExitCondition.
+/// Otherwise it returns a status giving the reason for the failure.
+pub fn start_and_watch_ssh_tunnel<T, F>(
     config: SshConfig,
     callback: F,
-) -> Result<(SshTunnel, SshHandle), SshStatus>
+) -> Result<(SshTunnel<T>, SshHandle), SshStatus>
 where
+    T: ChildProc + Send + 'static,
     F: FnOnce(SshStatus) + Send + 'static,
 {
     let tunnel = start_ssh_tunnel(config)?;
@@ -96,58 +97,159 @@ where
     Ok((tunnel, handle))
 }
 
-fn parse_stderr(msg: &str) -> SshStatus {
-    if check_dropped(msg) {
-        SshStatus::Dropped
-    } else if check_unreachable(msg) {
-        SshStatus::Unreachable
-    } else if check_denied(msg) {
-        SshStatus::Denied
-    } else if check_bad_port(msg) {
-        SshStatus::ConfigError(msg.to_string())
-    } else {
-        SshStatus::Exited
+/// Wraps the standard process::Child struct
+pub struct TunnelChild {
+    child: process::Child,
+}
+
+impl ChildProc for TunnelChild {
+
+    #[cfg(not(target_os = "windows"))]
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+        let child = process::Command::new("ssh")
+            .args(config.to_args())
+            .stdout(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
+            .spawn()
+            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+
+        Ok(Arc::new(Mutex::new(TunnelChild { child })))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+        let mut cmd = process::Command::new("ssh");
+
+        for arg in config.to_args() {
+            cmd.raw_arg(arg);
+        }
+
+        let child =cmd.stdout(process::Stdio::piped())
+            .stderr(process::Stdio::piped())
+            .spawn()
+            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+
+        Ok(Arc::new(Mutex::new(TunnelChild { child })))
+    }
+
+    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
+    // or throw an error if it fails to happen
+    fn wait_for_start(&mut self) -> Option<SshStatus> {
+        let mut stdout = self.child.stdout.take().unwrap();
+        let mut buffer = [0; 15];
+        let len = match stdout.read(&mut buffer) {
+            Err(err) => return Some(SshStatus::ProcError(err.to_string())),
+            Ok(len) => len,
+        };
+
+        //println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
+        if len < 15 {
+            let mut stderr = self.child.stderr.take().unwrap();
+            let mut err_msg = String::new();
+            stderr.read_to_string(&mut err_msg).unwrap();
+            Some(SshStatus::from_stderr(&err_msg))
+        } else {
+            None
+        }
+    }
+
+    fn exited(&mut self) -> Option<ExitCondition> {
+        match self.child.try_wait() {
+            Ok(Some(status)) => {
+                println!("exited with {status}");
+                if let Some(code) = status.code() {
+                    Some(FromPrimitive::from_i32(code).expect("Exit code should always be i32"))
+                } else {
+                    Some(ExitCondition::Canceled)
+                }
+            }
+            Ok(None) => None,
+            Err(e) => {
+                println!("error attempting to wait: {e}");
+                Some(ExitCondition::ProcError)
+            }
+        }
+    }
+
+    //Capture stderr to discover exit reason
+    fn exit_status(&mut self) -> SshStatus {
+        let mut stderr = { self.child.stderr.take().unwrap() };
+
+        let mut err_msg = String::new();
+        stderr.read_to_string(&mut err_msg).unwrap();
+
+        println!("Error: {err_msg}");
+        SshStatus::from_stderr(&err_msg)
+    }
+
+    fn kill(&mut self) {
+        match self.child.kill() {
+            Ok(_) => {
+                //println!("killed");
+            }
+            Err(_err) => {
+                //println!("Not killed: {err}")
+            }
+        }
     }
 }
 
-fn check_dropped(msg: &str) -> bool {
-    let re = Regex::new("Timeout, server .* not responding").unwrap();
-    re.is_match(msg)
-}
-
-fn check_unreachable(msg: &str) -> bool {
-    msg.contains("Network is unreachable")
-}
-
-fn check_denied(msg: &str) -> bool {
-    msg.contains("Permission denied")
-}
-
-fn check_bad_port(msg: &str) -> bool {
-    msg.contains("Bad local forwarding specification")
-}
-
+/// Defines the set of statuses that ssh tunnel can have
 #[derive(Debug, Clone)]
 pub enum SshStatus {
+    /// The tunnel is disconnected. It has either never connected, or it has disconnected cleanly
+    Disconnected,
+
+    /// The tunnel is connected
     Connected,
-    Dropped,
+
+    /// The server is unreachable
     Unreachable,
+
+    /// The server has denied access
     Denied,
-    Exited,
-    Retrying,
+
+    /// The tunnel has dropped
+    Dropped,
+
+    /// The tunnel is trying to reconnect
+    Reconnecting,
+
+    /// There was an error with the configuration
     ConfigError(String),
-    ProcError(String)
+
+    /// There was an error with the process
+    ProcError(String),
 }
 
 impl SshStatus {
+    /// Parses the stderr captured during the ssh process and parses it into an SshStatus
+    pub fn from_stderr(msg: &str) -> Self {
+        if Regex::new("Timeout, server .* not responding")
+            .unwrap()
+            .is_match(msg)
+        {
+            SshStatus::Dropped
+        } else if msg.contains("Network is unreachable") {
+            SshStatus::Unreachable
+        } else if msg.contains("Permission denied") {
+            SshStatus::Denied
+        } else if msg.contains("Bad local forwarding specification") {
+            SshStatus::ConfigError(msg.to_string())
+        } else {
+            SshStatus::Disconnected
+        }
+    }
+
+    /// Converts the status to a "signal" string for status event signaling
     pub fn to_signal(&self) -> String {
         let status = match self {
             SshStatus::Connected => "CONNECTED",
             SshStatus::Dropped => "DROPPED",
             SshStatus::Unreachable => "UNREACHABLE",
             SshStatus::Denied => "DENIED",
-            SshStatus::Exited => "EXIT",
-            SshStatus::Retrying => "RETRYING",
+            SshStatus::Disconnected => "EXIT",
+            SshStatus::Reconnecting => "RETRYING",
             SshStatus::ConfigError(msg) => {
                 println!("Config error: {msg}");
                 "BAD_CONFIG"
@@ -161,28 +263,58 @@ impl SshStatus {
     }
 }
 
-#[derive(FromPrimitive)]
-pub enum ExitStatus {
+/// Defines the set of exit conditions for the tunnel process
+#[derive(FromPrimitive, Debug)]
+pub enum ExitCondition {
+    /// The tunnel exited cleanly. This actualy will only happen if something
+    /// goes wrong. A successful tunnel must be killed, which will result in
+    /// an SshError or a Canceled condition.
     Clean = 0,
+
+    /// An error occured while handling the tunnel's child process
     ProcError = 1,
+
+    /// No exit code was returned, probably because the process was canceled
     Canceled = 2,
-    SshError = 255
+
+    /// The code that the ssh command will return if any error is encountered
+    #[cfg(not(target_os = "windows"))]
+    SshError = 255,
+
+    #[cfg(target_os = "windows")]
+    SshError = -1,
 }
 
+/// Configuration parameters for the ssh tunnel
 #[derive(Debug, Clone)]
 pub struct SshConfig {
+    /// The end host (most likely an ip address)
     end_host: String,
+
+    /// The username to log in with
     username: String,
+
+    /// A path to the key file to use. This must not be password encrypted
     key_path: String,
+
+    /// The host to forward the tunnel to (probably `localhost`)
     to_host: String,
+
+    /// The port to use on the to host
     local_port: u32,
+
+    /// The port to use on the end host
     remote_port: u32,
+
+    /// The keepalive time (in seconds). If the connection is interrupted for longer than this interval,
+    /// the tunnel process will exit
     keepalive: u32,
+
+    /// Any additional flags required
     flags: Vec<String>,
 }
 
 impl SshConfig {
-
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         end_host: &str,
@@ -192,40 +324,46 @@ impl SshConfig {
         local_port: u32,
         remote_port: u32,
         keepalive: u32,
-        flags: &[&str]
+        flags: &[&str],
     ) -> Self {
+        let kp = key_path.to_string().replace("C:", "").replace('\\', "/");
         SshConfig {
             end_host: String::from(end_host),
             username: String::from(username),
-            key_path: String::from(key_path),
+            key_path: kp,
             to_host: String::from(to_host),
             local_port,
             remote_port,
             keepalive,
-            flags: flags.iter().map(|f| {f.to_string()}).collect()
+            flags: flags.iter().map(|f| f.to_string()).collect(),
         }
     }
 
+    /// Converts the config object to an argument vector
     pub fn to_args(&self) -> Vec<String> {
         let mut args = self.flags.clone();
-        args.append(&mut vec![
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "ServerAliveCountMax=1",
-            "-o",
-            &format!("ServerAliveInterval={}", self.keepalive),
-            "-L",
-            &format!("{}:{}:{}", self.local_port, self.to_host, self.remote_port),
-            "-i",
-            &self.key_path,
-            &format!("{}@{}", self.username, self.end_host),
-        ].iter().map(|a| {
-            a.to_string()
-        }).collect::<Vec<String>>());
-        
+        args.append(
+            &mut vec![
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ServerAliveCountMax=1",
+                "-o",
+                &format!("ServerAliveInterval={}", self.keepalive),
+                "-L",
+                &format!("{}:{}:{}", self.local_port, self.to_host, self.remote_port),
+                "-i",
+                &self.key_path,
+                &format!("{}@{}", self.username, self.end_host),
+            ]
+            .iter()
+            .map(|a| a.to_string())
+            .collect::<Vec<String>>(),
+        );
+
+        //println!("Args: {:?}", args);
         args
     }
 }
@@ -236,7 +374,16 @@ mod tests {
 
     #[test]
     fn test_config() {
-        let config = SshConfig::new("endhost", "username", "keypath", "tohost", 1, 2, 10, &["-T"]);
+        let config = SshConfig::new(
+            "endhost",
+            "username",
+            "keypath",
+            "tohost",
+            1,
+            2,
+            10,
+            &["-T"],
+        );
         let args = config.to_args();
         let expected: Vec<String> = vec![
             "-T",
