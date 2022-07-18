@@ -68,11 +68,13 @@ async function main() {
 		.find(s => s?.name?.endsWith('.zip'))?.browser_download_url
 
 	if (macUrl) {
-		const macSigAssetId = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.id
+		const macSigAsset = assets.data.find(s => s?.name?.endsWith('.gz.sig'))
+		console.log(macSigAsset.data)
+		const macSigAssetId = macSigAsset?.id
 		const macSigFile = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
-						Accept: 'text/plain',
+						Accept: 'application/json',
 					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
@@ -96,7 +98,7 @@ async function main() {
 		const winSigFile = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
-						Accept: 'text/plain',
+						Accept: 'application/json',
 					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
