@@ -34,7 +34,7 @@ async function main() {
 
 	const latest = {
 		version: `v${VERSION}`,
-		notes: 'Alpha version',
+		notes: 'Beta release',
 		pub_date: new Date().toISOString(),
 		platforms: {},
 
