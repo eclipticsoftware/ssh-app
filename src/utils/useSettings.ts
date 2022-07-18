@@ -38,7 +38,7 @@ export const useSettings = () => {
 				// We don't want to report any errors from this
 				isDone.current = true
 				setLoading(false)
-				setError(err)
+				setError('Unable to find any saved user settings')
 			}
 		}
 		if (!loading && !isDone.current) getFile()

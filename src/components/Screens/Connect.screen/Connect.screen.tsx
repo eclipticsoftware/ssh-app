@@ -56,7 +56,7 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 					body: 'Settings Saved!',
 				})
 		} catch (err: any) {
-			setSettingsErr('Unable to find any saved user settings.')
+			setSettingsErr(err?.message ?? err)
 		}
 		try {
 			const { keyPath, ...data } = vals
