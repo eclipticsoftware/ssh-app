@@ -68,7 +68,15 @@ async function main() {
 		.find(s => s?.name?.endsWith('.zip'))?.browser_download_url
 
 	if (macUrl) {
-		const macSigFile = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.browser_download_url
+		const macSigAssetId = assets.data.find(s => s?.name?.endsWith('.gz.sig'))?.id
+		const macSigFile = macSigAssetId
+			? await github.rest.repos.getReleaseAsset({
+					owner: context.repo.owner,
+					repo: context.repo.repo,
+					asset_id: macSigAssetId,
+			  })
+			: null
+
 		const macPlatform = {
 			signature: macSigFile ? await (await fetch(macSigFile)).text() : undefined,
 			url: macUrl,
@@ -79,7 +87,15 @@ async function main() {
 	}
 
 	if (windowsUrl) {
-		const winSigFile = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.browser_download_url
+		const winSigAssetId = assets.data.find(s => s?.name?.endsWith('.zip.sig'))?.id
+		const winSigFile = macSigAssetId
+			? await github.rest.repos.getReleaseAsset({
+					owner: context.repo.owner,
+					repo: context.repo.repo,
+					asset_id: winSigAssetId,
+			  })
+			: null
+
 		const winPlatform = {
 			signature: winSigFile ? await (await fetch(winSigFile)).text() : undefined,
 			url: windowsUrl,
