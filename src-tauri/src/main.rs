@@ -21,7 +21,7 @@ use tokio::sync::mpsc::error::TryRecvError;
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
-use ssh_tunnel::{ChildProc, ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel};
+use ssh_tunnel::{ChildProc, ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() {
     let context = Context::new();
@@ -50,7 +50,7 @@ fn main() {
 }
 
 struct ContextInner {
-    tunnel: Option<SshTunnel<TauriChild>>,
+    tunnel: Option<SshTunnel<TunnelChild>>,
     //handle: Option<JoinHandle<(SshStatus, ExitStatus)>>,
     window: Option<Window>,
 }
@@ -265,7 +265,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
 fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
-) -> Result<(SshTunnel<TauriChild>, SshHandle), SshStatus> {
+) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
     let context_thread = context.clone();
     println!("Spawning new tunnel");
     ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
@@ -292,7 +292,7 @@ fn spawn_new_tunnel(
 }
 
 fn manage_spawn_result(
-    result: Result<(SshTunnel<TauriChild>, SshHandle), SshStatus>,
+    result: Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus>,
     context: Context,
 ) -> String {
     println!("Tunnel spawned");
