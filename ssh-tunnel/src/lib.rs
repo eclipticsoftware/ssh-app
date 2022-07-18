@@ -290,7 +290,11 @@ pub enum ExitCondition {
     Canceled = 2,
 
     /// The code that the ssh command will return if any error is encountered
+    #[cfg(not(target_os = "windows"))]
     SshError = 255,
+
+    #[cfg(target_os = "windows")]
+    SshError = -1,
 }
 
 /// Configuration parameters for the ssh tunnel
