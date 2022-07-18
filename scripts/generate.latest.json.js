@@ -9,6 +9,16 @@ const config = JSON.parse(fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8')
 const VERSION = config?.package?.version
 const latestFilename = 'latest.json'
 
+// https://stackoverflow.com/questions/10623798/how-do-i-read-the-contents-of-a-node-js-stream-into-a-string-variable
+const bufferToString = stream => {
+	const chunks = []
+	return new Promise((res, rej) => {
+		stream.on('data', chunk => chunks.push(Buffer.from(chunk)))
+		stream.on('error', err => rej(err))
+		stream.on('end', () => res(Buffer.concat(chunks).toString('utf-8')))
+	})
+}
+
 /**
  *  This was built based on a pull request that is currently waiting to be added to the tauri action project:
  *  Pull request: https://github.com/tauri-apps/tauri-action/pull/287/commits/0ebff2eb06ee1261374570118d59970522dac955
@@ -69,12 +79,12 @@ async function main() {
 
 	if (macUrl) {
 		const macSigAsset = assets.data.find(s => s?.name?.endsWith('.gz.sig'))
-		console.log(macSigAsset.data)
+
 		const macSigAssetId = macSigAsset?.id
-		const macSigFile = macSigAssetId
+		const buffer = macSigAssetId
 			? await github.rest.repos.getReleaseAsset({
 					headers: {
-						Accept: 'application/json',
+						Accept: 'application/octet-stream',
 					},
 					owner: context.repo.owner,
 					repo: context.repo.repo,
@@ -82,11 +92,14 @@ async function main() {
 			  })
 			: null
 
-		console.log('typeof macSignFile: ', typeof macSigFile)
-		console.log(macSigFile.data)
+		console.log('typeof buffer: ', typeof buffer)
+
+		const sig = bufferToString(buffer)
+
+		console.log('sig: ', sig)
 
 		const macPlatform = {
-			signature: macSigFile ? macSigFile : undefined,
+			signature: sig || undefined,
 			url: macUrl,
 		}
 
