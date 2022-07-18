@@ -1,4 +1,7 @@
+import { getVersion } from '@tauri-apps/api/app'
+import { useEffect } from 'react'
 import styled, { css } from 'styled-components'
+import useState from '../../../utils/useState'
 import { ConnectionStatus } from '../../Screens/Main.screen'
 import { Icon } from '../Icon'
 import { IconType } from '../Icon/fa.defaults'
@@ -7,7 +10,7 @@ import { Spinner } from '../Spinner'
 export const boardHeaderStyles = css`
 	display: flex;
 	align-items: center;
-	min-width: 400px;
+	width: 100%;
 
 	& > .icon {
 		height: 3rem;
@@ -15,11 +18,13 @@ export const boardHeaderStyles = css`
 		margin-right: 1em;
 	}
 
-	& > h2 {
-		padding: none;
-		margin: none;
-		font-size: 1.5rem;
-		margin-right: 1.5rem;
+	.app-info {
+		& > h2 {
+			padding: none;
+			margin: none;
+			font-size: 1.5rem;
+			margin-right: 1.5rem;
+		}
 	}
 
 	.status-info {
@@ -28,6 +33,7 @@ export const boardHeaderStyles = css`
 		border: solid 1px ${props => props.theme.colors.lightGrey.val};
 		background: ${props => props.theme.colors.black.opacity(40).val};
 		border-radius: 5px;
+		flex-grow: 1;
 
 		h5 {
 			margin: 0;
@@ -106,15 +112,28 @@ export type BoardHeaderProps = {
 	status: ConnectionStatus | null
 }
 export const BoardHeader = ({ status }: BoardHeaderProps): JSX.Element => {
+	const [version, setVersion] = useState('', 'version')
 	const parsedStatus = status && parseStatus(status)
 	const { msg, icon } = parsedStatus || {}
+
+	useEffect(() => {
+		if (!version)
+			getVersion()
+				.then(v => setVersion(v))
+				.catch(() => {})
+	}, [version])
 
 	const classStatus =
 		status === 'OK' ? 'ok' : status === 'ERROR' || status === 'DROPPED' ? 'err' : 'generic'
 	return (
 		<BoardHeaderView>
 			<Icon type='ssh' />
-			<h2>ECLIPTIC SSH CLIENT</h2>
+			<div className='app-info'>
+				<h2>ECLIPTIC SSH CLIENT</h2>
+				<p>
+					Version: <span className='version'>{version}</span>
+				</p>
+			</div>
 			<div className='status-info'>
 				<h5>Status:</h5>
 

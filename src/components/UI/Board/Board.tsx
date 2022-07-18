@@ -8,7 +8,8 @@ export const boardStyles = css`
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	max-width: 650px;
+	width: 650px;
+	height: 650px;
 
 	& > header {
 		padding: 1.5em 4em;
