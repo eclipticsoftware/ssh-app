@@ -2654,7 +2654,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "regex",
- "string-join",
 ]
 
 [[package]]
@@ -2671,12 +2670,6 @@ checksum = "dbe866e1e51e8260c9eed836a042a5e7f6726bb2b411dffeaa712e19c388f23b"
 dependencies = [
  "loom",
 ]
-
-[[package]]
-name = "string-join"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80c4f3c10e055640562d00f0f03dd36d4db7510730282aacde5563ac41d49286"
 
 [[package]]
 name = "string_cache"

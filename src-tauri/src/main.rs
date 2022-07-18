@@ -27,6 +27,8 @@ fn main() {
     let context = Context::new();
 
     let ctx_win_capt = context.clone();
+
+    #[allow(unused_mut)]
     let mut app = tauri::Builder::default()
         .on_page_load(move |window, _| {
             println!("Setting window");

@@ -9,7 +9,6 @@ use std::os::windows::process::CommandExt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use regex::Regex;
-use string_join::Join;
 
 /// Defines the necessary interface that a child process type must support to be used by the tunnel library
 pub trait ChildProc {
