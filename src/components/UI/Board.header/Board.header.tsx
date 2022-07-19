@@ -19,11 +19,20 @@ export const boardHeaderStyles = css`
 	}
 
 	.app-info {
+		padding-right: 10px;
+
 		& > h2 {
 			padding: none;
 			margin: none;
 			font-size: 1.5rem;
 			margin-right: 1.5rem;
+		}
+		.server-status {
+			padding-top: 3px;
+			border-top: solid 1px;
+			font-size: 0.8rem;
+			width: auto;
+			color: ${props => props.theme.colors.white.opacity(60).val};
 		}
 	}
 
@@ -110,8 +119,9 @@ const parseStatus = (status: ConnectionStatus): ParsedStatus =>
 
 export type BoardHeaderProps = {
 	status: ConnectionStatus | null
+	serverStatus: string
 }
-export const BoardHeader = ({ status }: BoardHeaderProps): JSX.Element => {
+export const BoardHeader = ({ status, serverStatus }: BoardHeaderProps): JSX.Element => {
 	const [version, setVersion] = useState('', 'version')
 	const parsedStatus = status && parseStatus(status)
 	const { msg, icon } = parsedStatus || {}
@@ -132,6 +142,9 @@ export const BoardHeader = ({ status }: BoardHeaderProps): JSX.Element => {
 				<h2>ECLIPTIC SSH CLIENT</h2>
 				<p>
 					Version: <span className='version'>{version}</span>
+				</p>
+				<p className='server-status'>
+					Server Status: <span>{serverStatus}</span>
 				</p>
 			</div>
 			<div className='status-info'>

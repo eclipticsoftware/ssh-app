@@ -34,6 +34,7 @@ export const MainScreen = (): JSX.Element => {
 	const [status, setStatus] = useState<ConnectionStatus>('DISCONNECTED')
 	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
 	const [unknownErr, setErr] = useState<string | null>(null)
+	const [serverStatus, setServerStatus] = useState('')
 
 	const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
 		setStatus('DISCONNECTED')
@@ -47,6 +48,7 @@ export const MainScreen = (): JSX.Element => {
 
 		listen(constants.tunnelStatus, e => {
 			const payload = e.payload as string
+			setServerStatus(`${payload}` || '')
 
 			// console.log('status: ', e.payload)
 
@@ -112,7 +114,7 @@ export const MainScreen = (): JSX.Element => {
 
 	return (
 		<MainScreenView>
-			<Board boardHeader={<BoardHeader status={status} />}>
+			<Board boardHeader={<BoardHeader status={status} serverStatus={serverStatus} />}>
 				{showConnectedScreen ? (
 					<ConnectedScreen status={status} onDisconnect={onDisconnect} />
 				) : (
