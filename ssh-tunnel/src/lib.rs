@@ -142,6 +142,7 @@ impl ChildProc for TunnelChild {
             Ok(len) => len,
         };
 
+        // Enable for debugging immediate disconnects
         //println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
         if len < 15 {
             let mut stderr = self.child.stderr.take().unwrap();
@@ -363,7 +364,7 @@ impl SshConfig {
             .collect::<Vec<String>>(),
         );
 
-        //println!("Args: {:?}", args);
+        println!("Args: {:?}", args);
         args
     }
 }

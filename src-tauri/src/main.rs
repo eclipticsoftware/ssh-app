@@ -3,25 +3,17 @@
     windows_subsystem = "windows"
 )]
 
-use std::mem;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{thread, time::Duration};
 
-//use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-
 use serde::Deserialize;
-use tauri::api::process::{Command, CommandChild, CommandEvent};
-use tauri::async_runtime::{block_on, Receiver};
 use tauri::command;
 use tauri::{window::Window, RunEvent, State};
-
-use tokio::sync::mpsc::error::TryRecvError;
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
-use ssh_tunnel::{ChildProc, ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
+use ssh_tunnel::{ChildProc, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() {
     let context = Context::new();
@@ -51,9 +43,12 @@ fn main() {
     })
 }
 
+
+/// Maintains the app context
 struct ContextInner {
+    /// Container for the tunnel process
     tunnel: Option<SshTunnel<TunnelChild>>,
-    //handle: Option<JoinHandle<(SshStatus, ExitStatus)>>,
+    /// Handle for the app window
     window: Option<Window>,
 }
 
@@ -61,12 +56,12 @@ impl ContextInner {
     fn new() -> Self {
         ContextInner {
             tunnel: None,
-            //handle: None,
             window: None,
         }
     }
 }
 
+/// Threadsafe context
 struct Context(Arc<Mutex<ContextInner>>);
 
 impl Context {
@@ -83,149 +78,8 @@ impl Context {
     }
 }
 
-struct TauriChild {
-    child: Option<CommandChild>,
-    rx: Receiver<CommandEvent>,
-    stderr: String,
-}
 
-impl TauriChild {
-    fn read_stdout_line(&mut self) -> Option<String> {
-        while let Some(event) = block_on(self.rx.recv()) {
-            match event {
-                CommandEvent::Stdout(line) => return Some(line),
-                CommandEvent::Stderr(line) => {
-                    println!("Got stderr: {line}");
-                    self.stderr.push_str(&line);
-                }
-                _ => {
-                    println!("Got other event: {:?}", event);
-                }
-            }
-        }
-        None
-    }
-
-    /// Capture remaining stderr data and return it
-    fn read_stderr(&mut self) -> Option<String> {
-        println!("Reading stderr: so far we have:");
-        println!("{}", self.stderr);
-        while let Some(event) = block_on(self.rx.recv()) {
-            if let CommandEvent::Stdout(line) = event {
-                self.stderr.push_str(&line);
-            }
-        }
-        if !self.stderr.is_empty() {
-            Some(self.stderr.clone())
-        } else {
-            None
-        }
-    }
-}
-
-impl ChildProc for TauriChild {
-    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
-        let (rx, child) = Command::new("ssh")
-            .args(config.to_args())
-            .env_clear()
-            .spawn()
-            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
-
-        Ok(Arc::new(Mutex::new(TauriChild {
-            child: Some(child),
-            rx,
-            stderr: String::new(),
-        })))
-    }
-
-    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
-    // or throw an error if it fails to happen
-    fn wait_for_start(&mut self) -> Option<SshStatus> {
-        let mut len = 0;
-        if let Some(line) = self.read_stdout_line() {
-            println!("Received stdout: {line}");
-            len = line.len();
-        } else {
-            println!("Failed to capture stdout");
-        }
-
-        if len < 15 {
-            if let Some(err_msg) = self.read_stderr() {
-                Some(SshStatus::from_stderr(&err_msg))
-            } else {
-                Some(SshStatus::ProcError("Failed to capture stderr".to_string()))
-            }
-        } else {
-            None
-        }
-    }
-
-    fn exited(&mut self) -> Option<ExitCondition> {
-        match self.rx.try_recv() {
-            Ok(event) => match event {
-                CommandEvent::Stderr(line) => {
-                    println!("Got stderr: {line}");
-                    self.stderr.push_str(&line);
-                    None
-                }
-                CommandEvent::Stdout(line) => {
-                    println!("Stdout: {line}");
-                    None
-                }
-                CommandEvent::Error(err) => {
-                    println!("Command error: {err}");
-                    Some(ExitCondition::ProcError)
-                }
-                CommandEvent::Terminated(payload) => {
-                    println!("Termination payload: {:?}", payload);
-                    if let Some(code) = payload.code {
-                        Some(FromPrimitive::from_i32(code).expect("Exit code should always be i32"))
-                    } else {
-                        Some(ExitCondition::ProcError)
-                    }
-                }
-                _ => {
-                    println!("Unknown event: {:?}", event);
-                    Some(ExitCondition::ProcError)
-                }
-            },
-            Err(TryRecvError::Empty) => {
-                //println!("Empty event buffer");
-                None
-            }
-            Err(TryRecvError::Disconnected) => {
-                println!("Disconnected without notice");
-                Some(ExitCondition::ProcError)
-            }
-        }
-    }
-
-    //Capture stderr to discover exit reason
-    fn exit_status(&mut self) -> SshStatus {
-        if let Some(err_msg) = self.read_stderr() {
-            println!("Error: {}", err_msg);
-            SshStatus::from_stderr(&err_msg)
-        } else {
-            SshStatus::ProcError("Failed to capture stderr".to_string())
-        }
-    }
-
-    fn kill(&mut self) {
-        let mut child: Option<CommandChild> = None;
-        mem::swap(&mut child, &mut self.child);
-        if let Some(child) = child {
-            match child.kill() {
-                Ok(_) => {
-                    println!("killed");
-                }
-                Err(err) => {
-                    println!("Not killed: {err}")
-                }
-            }
-        }
-    }
-}
-
+/// User settings passed down from the front end
 #[derive(Deserialize, Debug)]
 struct UserSettings<'a> {
     host: &'a str,
@@ -235,8 +89,15 @@ struct UserSettings<'a> {
 }
 
 impl UserSettings<'_> {
+    /// Converts the user settings to an SshConfig object
     fn to_config(&self) -> Result<SshConfig, std::num::ParseIntError> {
         let port = self.port.parse()?;
+        let flags = if cfg!(target_os = "windows") {
+            vec!["-T"]
+        } else {
+            vec!["-t", "-t"]
+        };
+
         Ok(SshConfig::new(
             self.host,
             self.user,
@@ -245,11 +106,15 @@ impl UserSettings<'_> {
             port,
             5432,
             10,
-            &["-T"],
+            &flags
         ))
     }
 }
 
+
+/// Command hook to start the tunnel process
+///
+/// This will spawn a new process and then check the results
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
     let config = match settings.to_config() {
@@ -264,6 +129,12 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
     manage_spawn_result(result, (*context).clone())
 }
 
+
+/// Spawns a new tunnel process
+///
+/// The process status resolving callback that's passed into the process watching thread will check the status
+/// and spawn an attempt_reconnect thread if it receives a `SshStatus::Dropped` status. It will then emit the
+/// captured status back to the front end.
 fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
@@ -288,10 +159,12 @@ fn spawn_new_tunnel(
             .as_ref()
             .unwrap()
             .emit("tunnel_status", Some(status.to_signal()))
-            .expect("emit drop failed");
+            .expect("emit status failed");
     })
 }
 
+
+/// Checks the result sent from `spawn_new_tunnel()` or `attempt_reconnect()` and updates the status on the front end
 fn manage_spawn_result(
     result: Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus>,
     context: Context,
@@ -318,6 +191,10 @@ fn manage_spawn_result(
     status_signal
 }
 
+
+/// Attempts to reconnect to the ssh server if the tunnel process is dropped
+///
+/// Will make `tries` attempts with a 3 second wait between each attempt.
 fn attempt_reconnect(config: SshConfig, context: Context, tries: u8) -> String {
     println!("Attempting to reconnect. {tries} tries left");
     let result = spawn_new_tunnel(config.clone(), context.clone());
@@ -331,6 +208,8 @@ fn attempt_reconnect(config: SshConfig, context: Context, tries: u8) -> String {
     }
 }
 
+
+/// Kills the tunnel process if it's running
 fn kill_tunnel(context: Context) {
     let context = context.lock();
     if context.tunnel.is_none() {
@@ -341,6 +220,8 @@ fn kill_tunnel(context: Context) {
     tunnel.kill();
 }
 
+
+/// Cammand to shut down the tunnel
 #[command]
 fn end_tunnel(context: State<'_, Context>) {
     kill_tunnel((*context).clone());
