@@ -48,6 +48,8 @@ export const MainScreen = (): JSX.Element => {
 		listen(constants.tunnelStatus, e => {
 			const payload = e.payload as string
 
+			// console.log('status: ', e.payload)
+
 			if (payload === constants.connected) {
 				/**
 				 *  SUCCESSFULLY CONNECTED

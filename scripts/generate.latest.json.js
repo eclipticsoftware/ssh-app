@@ -89,8 +89,9 @@ async function main() {
 			url: macUrl,
 		}
 
-		latest.platforms[`darwinx86_64`] = macPlatform
-		latest.platforms[`darwinaarch64`] = macPlatform
+		latest.platforms[`darwin-x86_64`] = macPlatform
+		latest.platforms[`darwin-aarch64`] = macPlatform
+		latest.platforms[`darwin-armv7`] = macPlatform
 	}
 
 	if (windowsUrl) {
@@ -115,7 +116,7 @@ async function main() {
 			url: windowsUrl,
 		}
 
-		latest.platforms[`windowsx86_64`] = winPlatform
+		latest.platforms[`windows-x86_64`] = winPlatform
 	}
 
 	fs.writeFileSync(latestFilePath, JSON.stringify(latest, null, 2))
