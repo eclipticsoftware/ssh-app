@@ -266,7 +266,7 @@ impl SshStatus {
     pub fn from_stderr(msg: &str) -> Self {
         if stderr_is_dropped(msg) {
             SshStatus::Dropped
-        } else if msg.contains("Network is unreachable") {
+        } else if msg.contains("Network is unreachable") || msg.contains("Unknown error") {
             SshStatus::Unreachable
         } else if msg.contains("Permission denied") {
             SshStatus::Denied
