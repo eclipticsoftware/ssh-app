@@ -260,13 +260,20 @@ fn stderr_is_dropped(msg: &str) -> bool {
     re.is_match(msg) || msg.contains("Connection reset")
 }
 
+fn stderr_is_unreachable(msg: &str) -> bool {
+    let re = Regex::new("Connection to .+ port .+ timed out")
+        .expect("This should not happen: invalid regex expression");
+
+    re.is_match(msg) || msg.contains("Network is unreachable") || msg.contains("Unknown error")
+}
+
 impl SshStatus {
 
     /// Parses the stderr captured during the ssh process and parses it into an SshStatus
     pub fn from_stderr(msg: &str) -> Self {
         if stderr_is_dropped(msg) {
             SshStatus::Dropped
-        } else if msg.contains("Network is unreachable") || msg.contains("Unknown error") {
+        } else if stderr_is_unreachable(msg) {
             SshStatus::Unreachable
         } else if msg.contains("Permission denied") {
             SshStatus::Denied
