@@ -44,7 +44,9 @@ where
     T: ChildProc,
 {
     let tunnel = T::new(config)?;
-    if let Some(status) = tunnel.clone().lock().unwrap().wait_for_start() {
+    if let Some(status) = tunnel.clone().lock().map_err(|err| {
+        SshStatus::ProcError(format!("Failed to lock tunnel: {err}"))
+    })?.wait_for_start() {
         Err(status)
     } else {
         Ok(tunnel)
@@ -61,19 +63,23 @@ where
     T: ChildProc,
     F: FnOnce(SshStatus) + Send,
 {
-    let exit_cond: ExitCondition;
     loop {
-        let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
-        if let Some(status) = tunnel.exited() {
-            exit_cond = status;
-            break;
+        match tunnel.lock() {
+            Ok(mut tunnel) => {
+                if let Some(exit_cond) = tunnel.exited() {
+                    let ssh_status = tunnel.exit_status();
+                    exit_callback(ssh_status.clone());
+                    return (ssh_status, exit_cond);
+                }
+            }
+            Err(err) => {
+                let ssh_status = SshStatus::ProcError(format!("Failed to lock tunnel: {err}"));
+                exit_callback(ssh_status.clone());
+                return (ssh_status, ExitCondition::ProcError);
+            }
         }
         thread::sleep(Duration::from_millis(100));
     }
-
-    let ssh_status = tunnel.lock().unwrap().exit_status();
-    exit_callback(ssh_status.clone());
-    (ssh_status, exit_cond)
 }
 
 /// Starts a tunnel process and a watcher thread
@@ -135,7 +141,11 @@ impl ChildProc for TunnelChild {
     // A few bytes will be printed to stdout once the login is complete. Wait for that output,
     // or throw an error if it fails to happen
     fn wait_for_start(&mut self) -> Option<SshStatus> {
-        let mut stdout = self.child.stdout.take().unwrap();
+        let mut stdout = if let Some(stdout) = self.child.stdout.take() {
+            stdout
+        } else {
+            return Some(SshStatus::ProcError("Failed to capture stdout of ssh process".to_string()));
+        };
         let mut buffer = [0; 15];
         let len = match stdout.read(&mut buffer) {
             Err(err) => return Some(SshStatus::ProcError(err.to_string())),
@@ -145,10 +155,18 @@ impl ChildProc for TunnelChild {
         // Enable for debugging immediate disconnects
         //println!("Stdout: {}", String::from_utf8(buffer.to_vec()).unwrap());
         if len < 15 {
-            let mut stderr = self.child.stderr.take().unwrap();
+            let mut stderr = if let Some(stderr) = self.child.stderr.take() {
+                stderr
+            } else {
+                return Some(SshStatus::ProcError("Failed to capture stderr of ssh process".to_string()));
+            };
             let mut err_msg = String::new();
-            stderr.read_to_string(&mut err_msg).unwrap();
-            Some(SshStatus::from_stderr(&err_msg))
+            if stderr.read_to_string(&mut err_msg).is_err() {
+                Some(SshStatus::ProcError("Failed to read from stderr".to_string()))
+            } else {
+                println!("Failed to start process: {err_msg}");
+                Some(SshStatus::from_stderr(&err_msg))
+            }
         } else {
             None
         }
@@ -180,13 +198,19 @@ impl ChildProc for TunnelChild {
 
     //Capture stderr to discover exit reason
     fn exit_status(&mut self) -> SshStatus {
-        let mut stderr = { self.child.stderr.take().unwrap() };
+        let mut stderr = if let Some(stderr) = self.child.stderr.take() {
+            stderr
+        } else {
+            return SshStatus::ProcError("Failed to capture stderr of ssh process".to_string());
+        };
 
         let mut err_msg = String::new();
-        stderr.read_to_string(&mut err_msg).unwrap();
-
-        println!("Error: {err_msg}");
-        SshStatus::from_stderr(&err_msg)
+        if stderr.read_to_string(&mut err_msg).is_err() {
+            SshStatus::ProcError("Failed to read from stderr".to_string())
+        } else {
+            println!("Error: {err_msg}");
+            SshStatus::from_stderr(&err_msg)
+        }
     }
 
     fn kill(&mut self) {
@@ -229,13 +253,18 @@ pub enum SshStatus {
     ProcError(String),
 }
 
+fn stderr_is_dropped(msg: &str) -> bool {
+    let re = Regex::new("Timeout, server .* not responding")
+        .expect("This should not happen: invalid regex expression");
+
+    re.is_match(msg) || msg.contains("Connection reset")
+}
+
 impl SshStatus {
+
     /// Parses the stderr captured during the ssh process and parses it into an SshStatus
     pub fn from_stderr(msg: &str) -> Self {
-        if Regex::new("Timeout, server .* not responding")
-            .unwrap()
-            .is_match(msg)
-        {
+        if stderr_is_dropped(msg) {
             SshStatus::Dropped
         } else if msg.contains("Network is unreachable") {
             SshStatus::Unreachable
