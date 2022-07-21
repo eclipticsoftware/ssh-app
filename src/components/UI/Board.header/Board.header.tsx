@@ -97,6 +97,11 @@ const parseStatus = (status: ConnectionStatus): ParsedStatus =>
 				msg: 'Connected',
 				icon: 'ok',
 		  }
+		: status == 'CONNECTING'
+		? {
+				msg: 'Connecting',
+				icon: 'ok',
+		  }
 		: status === 'DROPPED'
 		? {
 				msg: 'Connection Dropped',

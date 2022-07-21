@@ -1,33 +1,34 @@
+use std::sync::{Arc, Mutex};
+
 use clap::Parser;
 
-use ssh_tunnel::{SshConfig, SshStatus, TunnelChild, SshTunnel, SshHandle, ExitCondition};
 use ssh_tunnel::ChildProc;
+use ssh_tunnel::{ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() -> Result<(), i32> {
-
     let args = Args::parse();
     let config = args.to_config();
 
-    let exit_callback = move |status| {
+    let exit_callback = Arc::new(Mutex::new(|status| {
         println!("Status: {:?}", status);
         match status {
             SshStatus::Dropped => println!("Dropped connection"),
             SshStatus::Unreachable => println!("Unreachable"),
             SshStatus::Disconnected => println!("Disconnected cleanly"),
-            _ => println!("Unsupported status: {:?}", status)
+            _ => println!("Unsupported status: {:?}", status),
         }
-    };
+    }));
 
     let tunnel: SshTunnel<TunnelChild>;
     let handle: SshHandle;
-    match ssh_tunnel::start_and_watch_ssh_tunnel(config, exit_callback) {
+    match ssh_tunnel::start_and_watch_ssh_tunnel(config, exit_callback, true) {
         Ok((tnl, hndl)) => {
             tunnel = tnl;
             handle = hndl;
         }
         Err(err) => {
             println!("Failed to create tunnel: {:?}", err);
-            return Err(ExitCondition::SshError as i32)
+            return Err(ExitCondition::SshError as i32);
         }
     }
 
@@ -35,21 +36,19 @@ fn main() -> Result<(), i32> {
         println!("\n\nClosing tunnel");
         let mut tunnel = tunnel.lock().unwrap();
         tunnel.kill();
-    }).map_err(
-        |err| {
-            println!("Failed to set handler: {:?}", err);
-            100
-        }
-    )?;
+    })
+    .map_err(|err| {
+        println!("Failed to set handler: {:?}", err);
+        100
+    })?;
 
     println!("SSH tunnel started");
     let (ssh_status, exit_status) = handle.join().unwrap();
     match ssh_status {
         SshStatus::Disconnected => Ok(()),
-        _ => Err(exit_status as i32)
+        _ => Err(exit_status as i32),
     }
 }
-
 
 #[derive(Parser)]
 #[clap(version = "ssh-tunnel 0.1.0", long_about = None)]
@@ -64,7 +63,7 @@ struct Args {
     /// Path to the key file to use
     key_path: String,
 
-    /// Tohost name 
+    /// Tohost name
     to_host: String,
 
     /// Local port number
@@ -80,9 +79,7 @@ struct Args {
     keepalive: u32,
 }
 
-
 impl Args {
-
     fn to_config(&self) -> SshConfig {
         SshConfig::new(
             &self.end_host,
@@ -92,9 +89,7 @@ impl Args {
             self.local_port,
             self.remote_port,
             self.keepalive,
-            &["-T"]
+            &["-T"],
         )
     }
-    
-    
 }

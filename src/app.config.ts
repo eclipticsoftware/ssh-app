@@ -30,6 +30,9 @@ export const constants = {
 	tunnelStatus: 'tunnel_status',
 
 	// status listener response
+	connecting: 'CONNECTING',
+
+	// status listener response
 	connected: 'CONNECTED',
 
 	// status listener response

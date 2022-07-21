@@ -28,7 +28,7 @@ const MainScreenView = styled.div`
 	${mainScreenStyles}
 `
 
-export type ConnectionStatus = 'OK' | 'DROPPED' | 'RETRYING' | 'ERROR' | 'DISCONNECTED'
+export type ConnectionStatus = 'OK' | 'CONNECTING' | 'DROPPED' | 'RETRYING' | 'ERROR' | 'DISCONNECTED'
 
 export const MainScreen = (): JSX.Element => {
 	const [status, setStatus] = useState<ConnectionStatus>('DISCONNECTED')
@@ -62,6 +62,17 @@ export const MainScreen = (): JSX.Element => {
 					sendNotification({
 						title: 'SUCCESS',
 						body: 'SSH Connected!',
+					})
+			} else if (payload === constants.connecting) {
+				/**
+				 *  CONNECTING
+				 * */
+
+				setStatus('CONNECTING')
+				if (granted)
+					sendNotification({
+						title: 'CONNECTING',
+						body: 'SSH Connecting!',
 					})
 			} else if (payload === constants.dropped) {
 				/**

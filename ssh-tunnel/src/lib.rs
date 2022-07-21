@@ -15,7 +15,7 @@ pub trait ChildProc {
     fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus>;
 
     /// Waits for the child process to start (or fail to start)
-    fn wait_for_start(&mut self) -> Option<SshStatus>;
+    fn get_start_status(&mut self) -> Option<SshStatus>;
 
     /// Checks whether the process has exited. If it has, then it returns the ExitCondition
     fn exited(&mut self) -> Option<ExitCondition>;
@@ -33,24 +33,66 @@ pub type SshTunnel<T> = Arc<Mutex<T>>;
 /// A process-watching thread handle
 pub type SshHandle = thread::JoinHandle<(SshStatus, ExitCondition)>;
 
-/// Starts a tunnel process
+/// Starts a tunnel process and waits for the tunnel to connect (or fail)
 ///
 /// # Returns
 ///
 /// Returns a result with the tunnel process if it was successfully spawned, and with a status
 /// giving the reason for the failure if not.
-pub fn start_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>, SshStatus>
+pub fn start_wait_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>, SshStatus>
 where
     T: ChildProc,
 {
     let tunnel = T::new(config)?;
-    if let Some(status) = tunnel.clone().lock().map_err(|err| {
-        SshStatus::ProcError(format!("Failed to lock tunnel: {err}"))
-    })?.wait_for_start() {
+    if let Some(status) = tunnel
+        .clone()
+        .lock()
+        .map_err(|err| SshStatus::ProcError(format!("Failed to lock tunnel: {err}")))?
+        .get_start_status()
+    {
         Err(status)
     } else {
         Ok(tunnel)
     }
+}
+
+/// Starts a tunnel process and captures the start status in a callback
+///
+/// # Returns
+///
+/// Returns a result with the tunnel process if it was successfully spawned, and with a status
+/// giving the reason for the failure if not.
+pub fn start_ssh_tunnel<T, F>(
+    config: SshConfig,
+    status_callback: Arc<Mutex<F>>,
+) -> Result<SshTunnel<T>, SshStatus>
+where
+    T: ChildProc + Send + 'static,
+    F: FnMut(SshStatus) + Send  + 'static,
+{
+    let tunnel = T::new(config)?;
+    let tunnel_sts = tunnel.clone();
+
+    thread::spawn(move || {
+        let mut child = match tunnel_sts.lock() {
+            Ok(child) => child,
+            Err(err) => {
+                call_status_callback(
+                    status_callback,
+                    SshStatus::ProcError(format!("Failed to lock tunnel: {err}")),
+                );
+                return;
+            }
+        };
+
+        if let Some(status) = child.get_start_status() {
+            call_status_callback(status_callback, status)
+        } else {
+            call_status_callback(status_callback, SshStatus::Connected)
+        }
+    });
+
+    Ok(tunnel)
 }
 
 /// Watches a tunnel process and calls the given callback when it exits
@@ -58,23 +100,26 @@ where
 /// # Returns
 ///
 /// Returns a tuple containing the SshStatus and the ExitCondition
-pub fn ssh_watch_loop<T, F>(tunnel: SshTunnel<T>, exit_callback: F) -> (SshStatus, ExitCondition)
+pub fn ssh_watch_loop<T, F>(
+    tunnel: SshTunnel<T>,
+    exit_callback: Arc<Mutex<F>>,
+) -> (SshStatus, ExitCondition)
 where
     T: ChildProc,
-    F: FnOnce(SshStatus) + Send,
+    F: FnMut(SshStatus)  + Send,
 {
     loop {
         match tunnel.lock() {
             Ok(mut tunnel) => {
                 if let Some(exit_cond) = tunnel.exited() {
                     let ssh_status = tunnel.exit_status();
-                    exit_callback(ssh_status.clone());
+                    call_status_callback(exit_callback, ssh_status.clone());
                     return (ssh_status, exit_cond);
                 }
             }
             Err(err) => {
                 let ssh_status = SshStatus::ProcError(format!("Failed to lock tunnel: {err}"));
-                exit_callback(ssh_status.clone());
+                call_status_callback(exit_callback, ssh_status.clone());
                 return (ssh_status, ExitCondition::ProcError);
             }
         }
@@ -90,17 +135,32 @@ where
 /// Otherwise it returns a status giving the reason for the failure.
 pub fn start_and_watch_ssh_tunnel<T, F>(
     config: SshConfig,
-    callback: F,
+    callback: Arc<Mutex<F>>,
+    wait: bool,
 ) -> Result<(SshTunnel<T>, SshHandle), SshStatus>
 where
     T: ChildProc + Send + 'static,
-    F: FnOnce(SshStatus) + Send + 'static,
+    F: FnMut(SshStatus) + Send  + 'static,
 {
-    let tunnel = start_ssh_tunnel(config)?;
+    let tunnel = if wait {
+        start_wait_ssh_tunnel(config)
+    } else {
+        start_ssh_tunnel(config, callback.clone())
+    }?;
     let watched_tunnel = tunnel.clone();
     let handle = std::thread::spawn(move || ssh_watch_loop(watched_tunnel, callback));
 
     Ok((tunnel, handle))
+}
+
+fn call_status_callback<F>(status_callback: Arc<Mutex<F>>, status: SshStatus)
+where
+    F: FnMut(SshStatus) + Send,
+{
+    match status_callback.lock() {
+        Ok(mut cb) => cb(status),
+        Err(err) => println!("Failed to get exit callback handle: {err}"),
+    }
 }
 
 /// Wraps the standard process::Child struct
@@ -109,7 +169,6 @@ pub struct TunnelChild {
 }
 
 impl ChildProc for TunnelChild {
-
     #[cfg(not(target_os = "windows"))]
     fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
         let child = process::Command::new("ssh")
@@ -130,7 +189,8 @@ impl ChildProc for TunnelChild {
             cmd.raw_arg(arg);
         }
 
-        let child =cmd.stdout(process::Stdio::piped())
+        let child = cmd
+            .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .spawn()
             .map_err(|err| SshStatus::ProcError(err.to_string()))?;
@@ -140,11 +200,13 @@ impl ChildProc for TunnelChild {
 
     // A few bytes will be printed to stdout once the login is complete. Wait for that output,
     // or throw an error if it fails to happen
-    fn wait_for_start(&mut self) -> Option<SshStatus> {
+    fn get_start_status(&mut self) -> Option<SshStatus> {
         let mut stdout = if let Some(stdout) = self.child.stdout.take() {
             stdout
         } else {
-            return Some(SshStatus::ProcError("Failed to capture stdout of ssh process".to_string()));
+            return Some(SshStatus::ProcError(
+                "Failed to capture stdout of ssh process".to_string(),
+            ));
         };
         let mut buffer = [0; 15];
         let len = match stdout.read(&mut buffer) {
@@ -158,11 +220,15 @@ impl ChildProc for TunnelChild {
             let mut stderr = if let Some(stderr) = self.child.stderr.take() {
                 stderr
             } else {
-                return Some(SshStatus::ProcError("Failed to capture stderr of ssh process".to_string()));
+                return Some(SshStatus::ProcError(
+                    "Failed to capture stderr of ssh process".to_string(),
+                ));
             };
             let mut err_msg = String::new();
             if stderr.read_to_string(&mut err_msg).is_err() {
-                Some(SshStatus::ProcError("Failed to read from stderr".to_string()))
+                Some(SshStatus::ProcError(
+                    "Failed to read from stderr".to_string(),
+                ))
             } else {
                 println!("Failed to start process: {err_msg}");
                 Some(SshStatus::from_stderr(&err_msg))
@@ -231,6 +297,9 @@ pub enum SshStatus {
     /// The tunnel is disconnected. It has either never connected, or it has disconnected cleanly
     Disconnected,
 
+    /// The tunnel is connecting
+    Connecting,
+
     /// The tunnel is connected
     Connected,
 
@@ -268,7 +337,6 @@ fn stderr_is_unreachable(msg: &str) -> bool {
 }
 
 impl SshStatus {
-
     /// Parses the stderr captured during the ssh process and parses it into an SshStatus
     pub fn from_stderr(msg: &str) -> Self {
         if stderr_is_dropped(msg) {
@@ -287,11 +355,12 @@ impl SshStatus {
     /// Converts the status to a "signal" string for status event signaling
     pub fn to_signal(&self) -> String {
         let status = match self {
+            SshStatus::Disconnected => "EXIT",
+            SshStatus::Connecting => "CONNECTING",
             SshStatus::Connected => "CONNECTED",
-            SshStatus::Dropped => "DROPPED",
             SshStatus::Unreachable => "UNREACHABLE",
             SshStatus::Denied => "DENIED",
-            SshStatus::Disconnected => "EXIT",
+            SshStatus::Dropped => "DROPPED",
             SshStatus::Reconnecting => "RETRYING",
             SshStatus::ConfigError(msg) => {
                 println!("Config error: {msg}");
@@ -406,6 +475,7 @@ impl SshConfig {
         args
     }
 }
+
 
 #[cfg(test)]
 mod tests {

@@ -140,14 +140,17 @@ fn spawn_new_tunnel(
     context: Context,
 ) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
     let context_thread = context.clone();
-    ssh_tunnel::start_and_watch_ssh_tunnel(config.clone(), move |status| {
+    let config_thread = Arc::new(Mutex::new(config.clone()));
+    let callback = Arc::new(Mutex::new(
+        move |status| {
         println!("Status: {:?}", status);
         let status = match status {
             SshStatus::Dropped => {
                 // Attempt to reconnect in separate thread
                 let context_retry = context_thread.clone();
+                let config_thread = config_thread.clone();
                 thread::spawn(move || {
-                    attempt_reconnect(config, context_retry, 5);
+                    attempt_reconnect(config_thread, context_retry, 5);
                 });
                 SshStatus::Reconnecting
             }
@@ -160,7 +163,9 @@ fn spawn_new_tunnel(
             .unwrap()
             .emit("tunnel_status", Some(status.to_signal()))
             .expect("emit status failed");
-    })
+    }
+    ));
+    ssh_tunnel::start_and_watch_ssh_tunnel(config, callback, false)
 }
 
 
@@ -174,7 +179,7 @@ fn manage_spawn_result(
         Ok((tnl, _hndl)) => {
             ctxt.tunnel = Some(tnl);
             //ctxt.handle = Some(hndl);
-            SshStatus::Connected.to_signal()
+            SshStatus::Connecting.to_signal()
         }
         Err(status) => {
             println!("error: {:?}", status);
@@ -195,9 +200,12 @@ fn manage_spawn_result(
 /// Attempts to reconnect to the ssh server if the tunnel process is dropped
 ///
 /// Will make `tries` attempts with a 3 second wait between each attempt.
-fn attempt_reconnect(config: SshConfig, context: Context, tries: u8) -> String {
+fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context, tries: u8) -> String {
     println!("Attempting to reconnect. {tries} tries left");
-    let result = spawn_new_tunnel(config.clone(), context.clone());
+    let cfg = {
+        config.lock().expect("This should not happen: failed to lock config").clone()
+    };
+    let result = spawn_new_tunnel(cfg, context.clone());
     if result.is_ok() {
         manage_spawn_result(result, context)
     } else if tries == 0 {
