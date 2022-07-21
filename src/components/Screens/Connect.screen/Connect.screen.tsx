@@ -34,8 +34,9 @@ const validationSchema = Yup.object().shape({
 
 export type ConnectScreenProps = {
 	unknownErr: string | null
+	connecting: boolean
 }
-export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element => {
+export const ConnectScreen = ({ unknownErr, connecting }: ConnectScreenProps): JSX.Element => {
 	const [settingsSaveErr, setSettingsErr] = useState<ErrorBlockErr | null>(null, 'settingsSaveErr')
 	const [connectionErr, setConnectionErr] = useState<ErrorBlockErr | null>(null, 'connectionErr')
 
@@ -104,7 +105,7 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 							The next time you connect we will save your settings for future connections!
 						</p>
 					) : null}
-					<FormikSubmitBtn>
+					<FormikSubmitBtn isSubmitting={connecting}>
 						<Icon padRight type='connect' /> Connect
 					</FormikSubmitBtn>
 				</FormikForm>

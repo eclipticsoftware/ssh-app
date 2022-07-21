@@ -130,7 +130,7 @@ export const MainScreen = (): JSX.Element => {
 				{showConnectedScreen ? (
 					<ConnectedScreen status={status} onDisconnect={onDisconnect} />
 				) : (
-					<ConnectScreen unknownErr={unknownErr} />
+					<ConnectScreen unknownErr={unknownErr} connecting={status === 'CONNECTING'} />
 				)}
 			</Board>
 		</MainScreenView>

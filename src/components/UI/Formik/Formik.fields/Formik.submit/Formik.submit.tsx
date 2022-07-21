@@ -1,11 +1,15 @@
-import {useFormikContext} from 'formik'
-import {SubmitBtn, SubmitBtnProps} from './Submit.Btn'
+import { useFormikContext } from 'formik'
+import { SubmitBtn, SubmitBtnProps } from './Submit.Btn'
 
 export type FormikSubmitBtnProps = SubmitBtnProps & {
 	className?: string
 }
 
-export const FormikSubmitBtn = ({ className, ...props }: FormikSubmitBtnProps) => {
+export const FormikSubmitBtn = ({
+	className,
+	isSubmitting: submitting,
+	...props
+}: FormikSubmitBtnProps) => {
 	const { isSubmitting, isValid } = useFormikContext()
 
 	return (
@@ -13,7 +17,7 @@ export const FormikSubmitBtn = ({ className, ...props }: FormikSubmitBtnProps) =
 			className={`formik-submit${className ? ` ${className}` : ''}`}
 			{...props}
 			disabled={!isValid}
-			isSubmitting={isSubmitting}
+			isSubmitting={submitting || isSubmitting}
 		/>
 	)
 }
