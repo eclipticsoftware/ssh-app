@@ -100,7 +100,7 @@ const parseStatus = (status: ConnectionStatus): ParsedStatus =>
 		: status == 'CONNECTING'
 		? {
 				msg: 'Connecting',
-				icon: 'ok',
+				icon: 'circle',
 		  }
 		: status === 'DROPPED'
 		? {
@@ -159,7 +159,7 @@ export const BoardHeader = ({ status, serverStatus }: BoardHeaderProps): JSX.Ele
 					<Icon type={icon || 'circle'} padRight />
 					<div className='msg'>
 						{msg}
-						{status === 'RETRYING' ? (
+						{status === 'RETRYING' || status === 'CONNECTING' ? (
 							<Spinner type='dots' noBg isOverlay={false} height='sm' color='#fff' />
 						) : null}
 					</div>

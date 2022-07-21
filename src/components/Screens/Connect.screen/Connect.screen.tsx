@@ -80,8 +80,6 @@ export const ConnectScreen = ({ unknownErr }: ConnectScreenProps): JSX.Element =
 
 	const error = settingsSaveErr || connectionErr
 
-	console.log('settings: ', settings)
-
 	return (
 		<ConnectScreenView>
 			{settingsErr ? <ErrorBlock error={settingsErr} /> : null}
