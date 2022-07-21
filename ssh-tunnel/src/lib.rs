@@ -61,11 +61,11 @@ where
     T: ChildProc,
     F: FnOnce(SshStatus) + Send,
 {
-    let exit_status: ExitCondition;
+    let exit_cond: ExitCondition;
     loop {
         let mut tunnel = tunnel.lock().expect("failed to lock tunnel");
         if let Some(status) = tunnel.exited() {
-            exit_status = status;
+            exit_cond = status;
             break;
         }
         thread::sleep(Duration::from_millis(100));
@@ -73,7 +73,7 @@ where
 
     let ssh_status = tunnel.lock().unwrap().exit_status();
     exit_callback(ssh_status.clone());
-    (ssh_status, exit_status)
+    (ssh_status, exit_cond)
 }
 
 /// Starts a tunnel process and a watcher thread
@@ -159,7 +159,13 @@ impl ChildProc for TunnelChild {
             Ok(Some(status)) => {
                 println!("exited with {status}");
                 if let Some(code) = status.code() {
-                    Some(FromPrimitive::from_i32(code).expect("Exit code should always be i32"))
+                    match FromPrimitive::from_i32(code) {
+                        Some(cond) => Some(cond),
+                        None => {
+                            println!("Unknown exit code: {code}");
+                            Some(ExitCondition::ProcError)
+                        }
+                    }
                 } else {
                     Some(ExitCondition::Canceled)
                 }
@@ -275,15 +281,11 @@ pub enum ExitCondition {
     /// An error occured while handling the tunnel's child process
     ProcError = 1,
 
-    /// No exit code was returned, probably because the process was canceled
-    Canceled = 2,
-
     /// The code that the ssh command will return if any error is encountered
-    #[cfg(not(target_os = "windows"))]
     SshError = 255,
 
-    #[cfg(target_os = "windows")]
-    SshError = -1,
+    /// No exit code was returned, probably because the process was canceled
+    Canceled = -1,
 }
 
 /// Configuration parameters for the ssh tunnel
