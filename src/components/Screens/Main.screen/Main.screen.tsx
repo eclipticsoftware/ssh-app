@@ -101,7 +101,7 @@ export const MainScreen = (): JSX.Element => {
 						title: 'ERROR',
 						body: 'Invalid Credentials!',
 					})
-			} else if (payload === constants.denied) {
+			} else if (payload === constants.unreachable) {
 				/**
 				 *  SERVER UNREACHABLE
 				 *  Bad IP Address or Server is down
