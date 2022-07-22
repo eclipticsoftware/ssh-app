@@ -35,11 +35,13 @@ export type ConnectionStatus =
 	| 'RETRYING'
 	| 'ERROR'
 	| 'DISCONNECTED'
+	| 'DENIED'
+	| 'UNREACHABLE'
 
 export const MainScreen = (): JSX.Element => {
 	const [status, setStatus] = useState<ConnectionStatus>('DISCONNECTED')
 	const showConnectedScreen = status === 'OK' || status === 'RETRYING'
-	const [unknownErr, setErr] = useState<string | null>(null)
+	const [systemErr, setErr] = useState<string | null>(null)
 	const [serverStatus, setServerStatus] = useState('')
 
 	const onDisconnect: ConnectedScreenProps['onDisconnect'] = () => {
@@ -86,6 +88,32 @@ export const MainScreen = (): JSX.Element => {
 						title: 'ERROR',
 						body: 'SSH Connection Dropped!',
 					})
+			} else if (payload === constants.denied) {
+				/**
+				 *  CONNECTION DENIED
+				 *  Bad credentials
+				 * */
+
+				setStatus('DENIED')
+				setErr('Incorrect username or bad ssh key')
+				if (granted)
+					sendNotification({
+						title: 'ERROR',
+						body: 'Invalid Credentials!',
+					})
+			} else if (payload === constants.denied) {
+				/**
+				 *  SERVER UNREACHABLE
+				 *  Bad IP Address or Server is down
+				 * */
+
+				setStatus('UNREACHABLE')
+				setErr('Incorrect IP Address')
+				if (granted)
+					sendNotification({
+						title: 'ERROR',
+						body: 'Server Unavailable',
+					})
 			} else if (payload === constants.retrying) {
 				/**
 				 *  ATTEMPTING TO RE-ESTABLISH CONNECTION
@@ -128,9 +156,13 @@ export const MainScreen = (): JSX.Element => {
 		<MainScreenView>
 			<Board boardHeader={<BoardHeader status={status} serverStatus={serverStatus} />}>
 				{showConnectedScreen ? (
-					<ConnectedScreen status={status} onDisconnect={onDisconnect} />
+					<ConnectedScreen systemErr={systemErr} status={status} onDisconnect={onDisconnect} />
 				) : (
-					<ConnectScreen unknownErr={unknownErr} connecting={status === 'CONNECTING'} />
+					<ConnectScreen
+						systemErr={systemErr}
+						setSystemErr={setErr}
+						connecting={status === 'CONNECTING'}
+					/>
 				)}
 			</Board>
 		</MainScreenView>

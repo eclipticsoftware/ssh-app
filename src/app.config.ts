@@ -11,11 +11,6 @@ export const constants = {
 
 	// connection invocation response
 	// server could not be found (bad IP address)
-	unreachable: 'UNREACHABLE',
-
-	// connection invocation response
-	// successfully connected
-	success: 'SUCCESS',
 
 	/**
 	 *  Disconnect Invocation
@@ -47,7 +42,10 @@ export const constants = {
 	// status listener response
 	badConfig: 'BAD_CONFIG',
 
-	// connection invocation response
+	// status listener response
+	unreachable: 'UNREACHABLE',
+
+	// status listener response
 	// server exists but credentials were bad
 	denied: 'DENIED',
 }
