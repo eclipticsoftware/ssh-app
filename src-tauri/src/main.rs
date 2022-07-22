@@ -24,7 +24,10 @@ fn main() {
     let mut app = tauri::Builder::default()
         .on_page_load(move |window, _| {
             println!("Setting window");
-            ctx_win_capt.lock().expect("Failed to unlock context").window = Some(window);
+            ctx_win_capt
+                .lock()
+                .expect("Failed to unlock context")
+                .window = Some(window);
         })
         .manage(context.clone())
         .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
@@ -43,16 +46,17 @@ fn main() {
     })
 }
 
-
 const MAX_RETRIES: u32 = 5;
 
 /// Maintains the app context
 struct ContextInner {
     /// Container for the tunnel process
     tunnel: Option<SshTunnel<TunnelChild>>,
-    
+
     /// Handle for the app window
     window: Option<Window>,
+
+    status: SshStatus,
 
     /// Number of connection retries left
     retries: u32,
@@ -66,6 +70,7 @@ impl ContextInner {
         ContextInner {
             tunnel: None,
             window: None,
+            status: SshStatus::Disconnected,
             retries: 0,
             reconnecting: false,
         }
@@ -80,7 +85,6 @@ impl Context {
         Context(Arc::new(Mutex::new(ContextInner::new())))
     }
 
-
     /// Returns a context wth a clone of the inner context
     fn clone(&self) -> Self {
         Context(self.0.clone())
@@ -88,9 +92,9 @@ impl Context {
 
     /// Locks the inner context
     fn lock(&self) -> Result<MutexGuard<ContextInner>, SshStatus> {
-        self.0.lock().map_err(|err| {
-            SshStatus::ProcError(format!("Failed to lock context: {err}"))
-        })
+        self.0
+            .lock()
+            .map_err(|err| SshStatus::ProcError(format!("Failed to lock context: {err}")))
     }
 
     /// Locks the inner context
@@ -119,7 +123,16 @@ impl Context {
     ///
     /// A failure to successfully emit a status means that we cannot alert the user of the problem, so we may as well crash.
     fn emit_status(&self, status: SshStatus) {
-        if let Some(window) = self.panic_lock().window.as_ref() {
+        let mut inner = self.panic_lock();
+        // Only emit the status if it's different than the old status
+        if inner.status == status {
+            return;
+        }
+
+        inner.status = status.clone();
+
+        println!("Updating status: {status}");
+        if let Some(window) = inner.window.as_ref() {
             if let Err(err) = window.emit("tunnel_status", Some(status.to_signal())) {
                 panic!("Tunnel status emit failed: {err}");
             }
@@ -151,7 +164,7 @@ impl Context {
     /// # Panics
     ///
     /// Panics if the lock on the context fails. (See panic_lock())
-    fn get_retries(&self) -> u32{
+    fn get_retries(&self) -> u32 {
         self.panic_lock().retries
     }
 
@@ -207,7 +220,6 @@ impl Context {
     }
 }
 
-
 /// User settings passed down from the front end
 #[derive(Deserialize, Debug)]
 struct UserSettings<'a> {
@@ -235,11 +247,10 @@ impl UserSettings<'_> {
             port,
             5432,
             10,
-            &flags
+            &flags,
         ))
     }
 }
-
 
 /// Command hook to start the tunnel process
 ///
@@ -258,7 +269,6 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
     manage_spawn_result(result, (*context).clone())
 }
 
-
 /// Spawns a new tunnel process
 ///
 /// The process status resolving callback that's passed into the process watching thread will check the status
@@ -270,38 +280,34 @@ fn spawn_new_tunnel(
 ) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
     let context_thread = context.clone();
     let config_thread = Arc::new(Mutex::new(config.clone()));
-    let callback = Arc::new(Mutex::new(
-        move |status| {
-            println!("Status: {status}");
-            let status = match status {
-                SshStatus::Dropped => {
-                    // Attempt to reconnect in separate thread
-                    context.start_reconnect();
+    let callback = Arc::new(Mutex::new(move |status| {
+        let status = match status {
+            SshStatus::Dropped => {
+                // Attempt to reconnect in separate thread
+                context.start_reconnect();
+                spawn_reconnect(config_thread.clone(), context_thread.clone());
+                SshStatus::Reconnecting
+            }
+            SshStatus::Unreachable => {
+                if context.decr_retries() > 0 {
+                    // Continue trying to reconnect
                     spawn_reconnect(config_thread.clone(), context_thread.clone());
                     SshStatus::Reconnecting
+                } else if context.reconnecting() {
+                    // We failed to reconnect, so we have dropped
+                    context.stop_reconnect();
+                    SshStatus::Dropped
+                } else {
+                    SshStatus::Unreachable
                 }
-                SshStatus::Unreachable => {
-                    if context.decr_retries() > 0 {
-                        // Continue trying to reconnect
-                        spawn_reconnect(config_thread.clone(), context_thread.clone());
-                        SshStatus::Reconnecting
-                    } else if context.reconnecting() {
-                        // We failed to reconnect, so we have dropped
-                        context.stop_reconnect();
-                        SshStatus::Dropped
-                    } else {
-                        SshStatus::Unreachable
-                    }
-                }
-                _ => status,
-            };
+            }
+            _ => status,
+        };
 
-            context_thread.emit_status(status)
-        }
-    ));
+        context_thread.emit_status(status)
+    }));
     ssh_tunnel::start_and_watch_ssh_tunnel(config, callback, false)
 }
-
 
 /// Checks the result sent from `spawn_new_tunnel()` or `attempt_reconnect()` and updates the status on the front end
 fn manage_spawn_result(
@@ -330,12 +336,11 @@ fn spawn_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     });
 }
 
-
 /// Attempts to reconnect to the ssh server if the tunnel process is dropped
 ///
 /// If the reconnect succeeds then it will update the system
 fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
-    thread::sleep(Duration::from_secs(3));  // Wait 3 seconds to try to reconnect
+    thread::sleep(Duration::from_secs(3)); // Wait 3 seconds to try to reconnect
 
     let retries = context.get_retries();
     println!("Attempting to reconnect. {retries} retries left");
@@ -343,38 +348,34 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     let cfg = match config.lock() {
         Ok(cfg) => cfg,
         Err(err) => {
-            context.emit_status(SshStatus::ProcError(format!("Failed to lock config: {err}")));
+            context.emit_status(SshStatus::ProcError(format!(
+                "Failed to lock config: {err}"
+            )));
             return;
         }
     };
 
     let result = spawn_new_tunnel(cfg.clone(), context.clone());
-    if result.is_ok() {
+    if result.is_err() {
         manage_spawn_result(result, context);
-    }//  else if retries == 0 {
-    //     manage_spawn_result(Err(SshStatus::Dropped), context);
-    // }
+    }
 }
-
 
 /// Kills the tunnel process if it's running
 fn kill_tunnel(context: Context) {
     println!("Killing tunnel");
     match context.get_tunnel() {
-        Some(tunnel) => {
-            match tunnel.lock() {
-                Ok(mut child) => {
-                    child.kill();
-                },
-                Err(err) => {
-                    context.emit_status(SshStatus::ProcError(format!("Failed to kill tunnel: {err}")))
-                }
+        Some(tunnel) => match tunnel.lock() {
+            Ok(mut child) => {
+                child.kill();
             }
+            Err(err) => context.emit_status(SshStatus::ProcError(format!(
+                "Failed to kill tunnel: {err}"
+            ))),
         },
         None => {} // Just ignore it if there is no tunnel
     }
 }
-
 
 /// Cammand to shut down the tunnel
 #[command]
