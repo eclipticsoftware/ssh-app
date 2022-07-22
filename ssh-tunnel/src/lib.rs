@@ -2,6 +2,7 @@ use std::io::Read;
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
+use std::fmt;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -352,6 +353,12 @@ impl SshStatus {
             }
         };
         status.to_string()
+    }
+}
+
+impl fmt::Display for SshStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
