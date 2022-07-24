@@ -8,6 +8,7 @@
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { createContext, Dispatch, ReactNode, useContext, useEffect } from 'react'
 import { constants, ServerStatus } from '../../app.config'
+import { UserSettings } from '../../utils/useSettings'
 import { IconType } from '../UI/Icon/fa.defaults'
 import { useAppState } from './useAppState'
 
@@ -18,6 +19,8 @@ export type Store = {
 	systemErr: string | null
 	setSystemErr: Dispatch<string | null>
 	statusIcon: IconType
+	userSettings: UserSettings | null
+	setUserSettings: Dispatch<UserSettings | null>
 }
 
 const initialStore: Store = {
@@ -27,6 +30,8 @@ const initialStore: Store = {
 	systemErr: null,
 	setSystemErr: () => {},
 	statusIcon: 'circle',
+	userSettings: null,
+	setUserSettings: () => {},
 }
 
 export const context = createContext(initialStore)

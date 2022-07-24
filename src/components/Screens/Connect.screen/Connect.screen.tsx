@@ -1,10 +1,7 @@
-import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
-import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
-import { constants, userSettingsPath } from '../../../app.config'
-import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
+import { constants } from '../../../app.config'
 import { useSettings } from '../../../utils/useSettings'
 import { useStore } from '../../Store/Store.provider'
 import { ErrorBlock } from '../../UI/ErrorBlock'
@@ -42,9 +39,8 @@ const validationSchema = Yup.object().shape({
 
 export type ConnectScreenProps = {}
 export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
-	const { status, systemErr, setSystemErr } = useStore()
+	const { status, systemErr, setSystemErr, setUserSettings } = useStore()
 	const { loading, settings, error: settingsErr } = useSettings()
-	const { granted } = useGetNotificationPermission()
 
 	const initialVals = settings
 
@@ -53,20 +49,6 @@ export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 	const onSubmit = async (vals: typeof initialVals) => {
 		setSystemErr(null)
 		try {
-			writeTextFile(
-				{ path: userSettingsPath, contents: JSON.stringify(vals) },
-				{ dir: BaseDirectory.Home }
-			)
-
-			if (!settings && granted)
-				sendNotification({
-					title: 'SUCCESS',
-					body: 'Settings Saved!',
-				})
-		} catch (err: any) {
-			setSystemErr(err)
-		}
-		try {
 			const { keyPath, ...data } = vals
 			invoke(constants.startTunnel, {
 				settings: {
@@ -74,6 +56,7 @@ export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 					key_path: keyPath,
 				},
 			})
+			setUserSettings(vals)
 		} catch (err: any) {
 			// console.log('Connection error: ', err)
 			setSystemErr(err)

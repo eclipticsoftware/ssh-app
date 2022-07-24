@@ -4,10 +4,12 @@
   WARNING: This should only ever be used by the Store.provider component
  =================================================
 * */
+import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
 import { sendNotification } from '@tauri-apps/api/notification'
-import { Reducer, useEffect, useReducer, useState } from 'react'
-import { appStatus, ServerStatus } from '../../app.config'
+import { Reducer, useEffect, useReducer, useRef, useState } from 'react'
+import { appStatus, ServerStatus, userSettingsPath } from '../../app.config'
 import { useGetNotificationPermission } from '../../utils/useGetNotificationPermission'
+import { UserSettings } from '../../utils/useSettings'
 import { IconType } from '../UI/Icon/fa.defaults'
 import { Store } from './Store.provider'
 
@@ -34,7 +36,36 @@ export const useAppState = (): Store => {
 
 	const [status, setStatus] = useState<ServerStatus>('READY')
 	const [systemErr, setSystemErr] = useState<string | null>(null)
+	const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
 	const { granted } = useGetNotificationPermission()
+
+	const writing = useRef(false)
+
+	useEffect(() => {
+		const writeSettingsFile = async () => {
+			writing.current = true
+			try {
+				writeTextFile(
+					{ path: userSettingsPath, contents: JSON.stringify(userSettings) },
+					{ dir: BaseDirectory.Home }
+				)
+
+				if (!userSettings && granted)
+					sendNotification({
+						title: 'SUCCESS',
+						body: 'Settings Saved!',
+					})
+				writing.current = false
+			} catch (err: any) {
+				setSystemErr(err)
+				writing.current = false
+			}
+		}
+
+		if (userSettings && status === 'CONNECTED' && !writing.current) writeSettingsFile()
+
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [userSettings, status])
 
 	useEffect(() => {
 		dispatch(status)
@@ -84,7 +115,9 @@ export const useAppState = (): Store => {
 		statusIcon,
 		statusMsg,
 		systemErr,
+		userSettings,
 		setStatus,
 		setSystemErr,
+		setUserSettings,
 	}
 }

@@ -8,7 +8,7 @@ const defaultSettings = {
 	port: '',
 	keyPath: '',
 }
-type UserSettings = typeof defaultSettings
+export type UserSettings = typeof defaultSettings
 
 export const useSettings = () => {
 	const [settings, setSettings] = useState<UserSettings>(defaultSettings)
