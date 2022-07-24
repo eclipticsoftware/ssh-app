@@ -67,15 +67,6 @@ export const useAppState = (): Store => {
 					title: 'INTERRUPTION',
 					body: 'SSH Connection Interrupted!',
 				})
-		} else if (status?.includes('BAD_CONFIG')) {
-			const errMsg = status.substring(11)
-			setSystemErr(`Invalid parameter(s): ${errMsg}`)
-		} else if (status?.includes('ERROR')) {
-			const errMsg = status.substring(6)
-			setSystemErr(`System Error: ${errMsg}`)
-		} else if (status?.includes('UNKNOWN')) {
-			const errMsg = status.substring(8)
-			setSystemErr(`Unknown Error: ${errMsg}`)
 		}
 	}, [status])
 

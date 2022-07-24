@@ -38,7 +38,17 @@ export const StoreProvider = ({ children }: StoreProviderProps): JSX.Element => 
 		let cleanupSuccessListener: UnlistenFn
 
 		listen(constants.tunnelStatus, e => {
-			state.setStatus(e.payload as ServerStatus)
+			const signal = e.payload as string
+
+			let serverStatus = signal
+
+			if (signal.includes(':')) {
+				const err = signal.substring(signal.indexOf(':') + 2)
+				state.setSystemErr(err)
+				serverStatus = signal.substring(0, signal.indexOf(':'))
+			}
+
+			state.setStatus(serverStatus as ServerStatus)
 		}).then(handler => (cleanupSuccessListener = handler))
 
 		return () => {
