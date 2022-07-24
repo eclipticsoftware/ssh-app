@@ -11,11 +11,12 @@ import { appStatus, ServerStatus, userSettingsPath } from '../../app.config'
 import { useGetNotificationPermission } from '../../utils/useGetNotificationPermission'
 import { UserSettings } from '../../utils/useSettings'
 import { IconType } from '../UI/Icon/fa.defaults'
-import { Store } from './Store.provider'
+import { StatusHistory, Store } from './Store.provider'
 
 type ReducerState = {
 	statusMsg: string
 	statusIcon: IconType
+	history: StatusHistory[]
 }
 const reducer: Reducer<ReducerState, ServerStatus> = (state, serverStatus) => {
 	const newState = { ...state }
@@ -25,13 +26,28 @@ const reducer: Reducer<ReducerState, ServerStatus> = (state, serverStatus) => {
 	if (status) newState.statusMsg = status
 	if (icon) newState.statusIcon = icon
 
+	if (state.history[state.history.length - 1].status !== serverStatus)
+		newState.history = [
+			...state.history,
+			{
+				isoTimestamp: new Date().toISOString(),
+				status: serverStatus,
+			},
+		]
+
 	return newState
 }
 
 export const useAppState = (): Store => {
-	const [{ statusMsg, statusIcon }, dispatch] = useReducer(reducer, {
+	const [{ statusMsg, statusIcon, history }, dispatch] = useReducer(reducer, {
 		statusMsg: 'Ready',
 		statusIcon: 'circle',
+		history: [
+			{
+				isoTimestamp: new Date().toISOString(),
+				status: 'READY',
+			},
+		],
 	})
 
 	const [status, setStatus] = useState<ServerStatus>('READY')
@@ -116,6 +132,7 @@ export const useAppState = (): Store => {
 		statusMsg,
 		systemErr,
 		userSettings,
+		history,
 		setStatus,
 		setSystemErr,
 		setUserSettings,

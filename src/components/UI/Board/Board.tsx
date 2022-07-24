@@ -11,7 +11,7 @@ export const boardStyles = css`
 	display: flex;
 	flex-direction: column;
 	width: 650px;
-	height: 650px;
+	min-height: 703px;
 
 	& > header {
 		padding: 1.5em 4em;
@@ -34,6 +34,27 @@ export const boardStyles = css`
 			padding-top: 1em;
 		}
 	}
+
+	& > footer {
+		padding: 1em;
+		margin-top: 1em;
+		border-top: solid 1px ${props => props.theme.colors.grey.light(1).val};
+
+		.status-history {
+			height: 100px;
+			overflow: auto;
+
+			.history-item {
+				display: flex;
+				align-items: center;
+				color: ${props => props.theme.colors.grey.light().val};
+
+				& > div {
+					padding: 0 0.5em;
+				}
+			}
+		}
+	}
 `
 
 const BoardView = styled.div`
@@ -46,7 +67,7 @@ export type BoardProps = {
 	className?: string
 }
 export const Board = ({ boardHeader, children, className }: BoardProps): JSX.Element => {
-	const { systemErr } = useStore()
+	const { systemErr, history } = useStore()
 	return (
 		<BoardView className={`board${className ? ` ${className}` : ''}`}>
 			<header>{boardHeader}</header>
@@ -54,6 +75,15 @@ export const Board = ({ boardHeader, children, className }: BoardProps): JSX.Ele
 				<div className='system-err'>{systemErr ? <ErrorBlock error={systemErr} /> : null}</div>
 				<div className='screen'>{children}</div>
 			</main>
+			<footer>
+				<div className='status-history'>
+					{history.map(({ isoTimestamp, status }) => (
+						<div className='history-item'>
+							<div className='time'>{isoTimestamp}</div>-<div className='status'>{status}</div>
+						</div>
+					))}
+				</div>
+			</footer>
 		</BoardView>
 	)
 }

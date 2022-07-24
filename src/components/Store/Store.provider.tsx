@@ -12,6 +12,11 @@ import { UserSettings } from '../../utils/useSettings'
 import { IconType } from '../UI/Icon/fa.defaults'
 import { useAppState } from './useAppState'
 
+export type StatusHistory = {
+	isoTimestamp: string
+	status: ServerStatus
+}
+
 export type Store = {
 	status: ServerStatus
 	setStatus: Dispatch<ServerStatus>
@@ -21,6 +26,7 @@ export type Store = {
 	statusIcon: IconType
 	userSettings: UserSettings | null
 	setUserSettings: Dispatch<UserSettings | null>
+	history: StatusHistory[]
 }
 
 const initialStore: Store = {
@@ -32,6 +38,12 @@ const initialStore: Store = {
 	statusIcon: 'circle',
 	userSettings: null,
 	setUserSettings: () => {},
+	history: [
+		{
+			isoTimestamp: new Date().toISOString(),
+			status: 'READY',
+		},
+	],
 }
 
 export const context = createContext(initialStore)

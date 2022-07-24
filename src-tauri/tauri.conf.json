@@ -72,7 +72,7 @@
 		"windows": [
 			{
 				"fullscreen": false,
-				"height": 700,
+				"height": 800,
 				"width": 670,
 				"resizable": true,
 				"title": "ECLIPTIC-SSH-CLIENT"
