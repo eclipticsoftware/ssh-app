@@ -2,7 +2,7 @@ import { HTMLProps } from 'react'
 import styled, { css } from 'styled-components'
 import { Spinner } from '../../../Spinner'
 
-const submitBtnStyles = css`
+export const submitBtnStyles = css`
 	padding: 0.8em 1.5em;
 	display: flex;
 	align-items: center;

@@ -10,12 +10,20 @@ import { useStore } from '../../Store/Store.provider'
 import { ErrorBlock } from '../../UI/ErrorBlock'
 import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.file'
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
+import { submitBtnStyles } from '../../UI/Formik/Formik.fields/Formik.submit/Submit.Btn'
 import { FormikText } from '../../UI/Formik/Formik.fields/Formik.text'
 import { FormikForm } from '../../UI/Formik/Formik.form'
 import { Icon } from '../../UI/Icon'
 import { Spinner } from '../../UI/Spinner'
 
 export const connectScreenStyles = css`
+	.cancel-btn {
+		border: none;
+		outline: none;
+		box-shadow: none;
+
+		${submitBtnStyles}
+	}
 	.submit-btn {
 		margin-top: 1em;
 	}
@@ -60,7 +68,7 @@ export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 		}
 		try {
 			const { keyPath, ...data } = vals
-			await invoke(constants.startTunnel, {
+			invoke(constants.startTunnel, {
 				settings: {
 					...data,
 					key_path: keyPath,
@@ -95,9 +103,21 @@ export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 							The next time you connect we will save your settings for future connections!
 						</p>
 					) : null}
-					<FormikSubmitBtn isSubmitting={connecting}>
-						<Icon padRight type='connect' /> Connect
-					</FormikSubmitBtn>
+					{connecting ? (
+						<button
+							className='cancel-btn'
+							onClick={e => {
+								e.preventDefault()
+								invoke(constants.endTunnel)
+							}}
+						>
+							Cancel
+						</button>
+					) : (
+						<FormikSubmitBtn isSubmitting={connecting}>
+							<Icon padRight type='connect' /> Connect
+						</FormikSubmitBtn>
+					)}
 				</FormikForm>
 			)}
 		</ConnectScreenView>
