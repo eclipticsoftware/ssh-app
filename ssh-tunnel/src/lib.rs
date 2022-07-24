@@ -47,7 +47,7 @@ where
     let tunnel = T::new(config)?;
     let mut child = tunnel
         .lock()
-        .map_err(|err| SshStatus::ProcError(format!("Failed to lock tunnel: {err}")))?;
+        .map_err(|err| SshStatus::AppError(format!("Failed to lock tunnel: {err}")))?;
     if child.wait_for_start().is_some() {
         Err(child.exit_status())
     } else {
@@ -78,7 +78,7 @@ where
             Err(err) => {
                 call_status_callback(
                     status_callback,
-                    SshStatus::ProcError(format!("Failed to lock tunnel: {err}")),
+                    SshStatus::AppError(format!("Failed to lock tunnel: {err}")),
                 );
                 return;
             }
@@ -116,7 +116,7 @@ where
                 }
             }
             Err(err) => {
-                let ssh_status = SshStatus::ProcError(format!("Failed to lock tunnel: {err}"));
+                let ssh_status = SshStatus::AppError(format!("Failed to lock tunnel: {err}"));
                 call_status_callback(exit_callback, ssh_status.clone());
                 return (ssh_status, ExitCondition::ProcError);
             }
@@ -174,7 +174,7 @@ impl ChildProc for TunnelChild {
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .spawn()
-            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+            .map_err(|err| SshStatus::AppError(err.to_string()))?;
 
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
@@ -191,7 +191,7 @@ impl ChildProc for TunnelChild {
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .spawn()
-            .map_err(|err| SshStatus::ProcError(err.to_string()))?;
+            .map_err(|err| SshStatus::AppError(err.to_string()))?;
 
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
@@ -202,19 +202,19 @@ impl ChildProc for TunnelChild {
         let mut stdout = if let Some(stdout) = self.child.stdout.take() {
             stdout
         } else {
-            return Some(SshStatus::ProcError(
+            return Some(SshStatus::AppError(
                 "Failed to capture stdout of ssh process".to_string(),
             ));
         };
         let mut buffer = [0; 15];
         let len = match stdout.read(&mut buffer) {
-            Err(err) => return Some(SshStatus::ProcError(err.to_string())),
+            Err(err) => return Some(SshStatus::AppError(err.to_string())),
             Ok(len) => len,
         };
         if len >= 15 {
             None
         } else {
-            Some(SshStatus::Disconnected)
+            Some(SshStatus::Ready)
         }
     }
 
@@ -247,15 +247,19 @@ impl ChildProc for TunnelChild {
         let mut stderr = if let Some(stderr) = self.child.stderr.take() {
             stderr
         } else {
-            return SshStatus::ProcError("Failed to capture stderr of ssh process".to_string());
+            return SshStatus::AppError("Failed to capture stderr of ssh process".to_string());
         };
 
-        let mut err_msg = String::new();
-        if stderr.read_to_string(&mut err_msg).is_err() {
-            SshStatus::ProcError("Failed to read from stderr".to_string())
+        let mut stderr_msg = String::new();
+        if stderr.read_to_string(&mut stderr_msg).is_err() {
+            SshStatus::AppError("Failed to read from stderr".to_string())
         } else {
-            println!("Error: {err_msg}");
-            SshStatus::from_stderr(&err_msg)
+            let stderr_msg: String = stderr_msg
+                .split('\n')
+                .filter(|s| !s.contains("Warning: Permanently added") && !s.is_empty())
+                .collect();
+            println!("exit status: {stderr_msg}");
+            SshStatus::from_stderr(&stderr_msg)
         }
     }
 
@@ -275,7 +279,7 @@ impl ChildProc for TunnelChild {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SshStatus {
     /// The tunnel is disconnected. It has either never connected, or it has disconnected cleanly
-    Disconnected,
+    Ready,
 
     /// The tunnel is connecting
     Connecting,
@@ -295,11 +299,14 @@ pub enum SshStatus {
     /// The tunnel is trying to reconnect
     Reconnecting,
 
+    /// An unknown ssh error
+    Unknown(String),
+
     /// There was an error with the configuration
     ConfigError(String),
 
     /// There was an error with the process
-    ProcError(String),
+    AppError(String),
 }
 
 fn stderr_is_dropped(msg: &str) -> bool {
@@ -310,48 +317,51 @@ fn stderr_is_dropped(msg: &str) -> bool {
 }
 
 fn stderr_is_unreachable(msg: &str) -> bool {
-    let re = Regex::new("Connection to .+ port .+ timed out")
-        .expect("This should not happen: invalid regex expression");
-
-    re.is_match(msg) || msg.contains("Network is unreachable") || msg.contains("Unknown error")
+    msg.contains("timed out") || msg.contains("Network is unreachable") || msg.contains("Unknown error")
 }
 
 impl SshStatus {
     /// Parses the stderr captured during the ssh process and parses it into an SshStatus
     pub fn from_stderr(msg: &str) -> Self {
-        if stderr_is_dropped(msg) {
+        if msg.is_empty() {
+            SshStatus::Ready
+        } else if stderr_is_dropped(msg) {
             SshStatus::Dropped
         } else if stderr_is_unreachable(msg) {
             SshStatus::Unreachable
-        } else if msg.contains("Permission denied") {
+        } else if msg.contains("Permission denied") || msg.contains("Connection refused") {
             SshStatus::Denied
         } else if msg.contains("Bad local forwarding specification") {
             SshStatus::ConfigError(msg.to_string())
         } else {
-            SshStatus::Disconnected
+            println!("Other status: {msg}");
+            SshStatus::Unknown(msg.to_string())
         }
     }
 
     /// Converts the status to a "signal" string for status event signaling
     pub fn to_signal(&self) -> String {
-        let status = match self {
-            SshStatus::Disconnected => "EXIT",
-            SshStatus::Connecting => "CONNECTING",
-            SshStatus::Connected => "CONNECTED",
-            SshStatus::Unreachable => "UNREACHABLE",
-            SshStatus::Denied => "DENIED",
-            SshStatus::Dropped => "DROPPED",
-            SshStatus::Reconnecting => "RETRYING",
+        match self {
+            SshStatus::Ready => "READY".to_string(),
+            SshStatus::Connecting => "CONNECTING".to_string(),
+            SshStatus::Connected => "CONNECTED".to_string(),
+            SshStatus::Unreachable => "UNREACHABLE".to_string(),
+            SshStatus::Denied => "DENIED".to_string(),
+            SshStatus::Dropped => "DROPPED".to_string(),
+            SshStatus::Reconnecting => "RETRYING".to_string(),
+            SshStatus::Unknown(msg) => {
+                println!("Unknown error: {msg}");
+                format!("UNKNOWN: {msg}")
+            }
             SshStatus::ConfigError(msg) => {
                 println!("Config error: {msg}");
-                "BAD_CONFIG"
+                format!("BAD_CONFIG: {msg}")
             }
-            SshStatus::ProcError(msg) => {
+            SshStatus::AppError(msg) => {
                 println!("Process error: {msg}");
-                "ERROR"
+                format!("ERROR: {msg}")
             }
-        };
-        status.to_string()
+        }
     }
 }
 

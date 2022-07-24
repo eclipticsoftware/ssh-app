@@ -70,7 +70,7 @@ impl ContextInner {
         ContextInner {
             tunnel: None,
             window: None,
-            status: SshStatus::Disconnected,
+            status: SshStatus::Ready,
             retries: 0,
             reconnecting: false,
         }
@@ -94,7 +94,7 @@ impl Context {
     fn lock(&self) -> Result<MutexGuard<ContextInner>, SshStatus> {
         self.0
             .lock()
-            .map_err(|err| SshStatus::ProcError(format!("Failed to lock context: {err}")))
+            .map_err(|err| SshStatus::AppError(format!("Failed to lock context: {err}")))
     }
 
     /// Locks the inner context
@@ -348,7 +348,7 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     let cfg = match config.lock() {
         Ok(cfg) => cfg,
         Err(err) => {
-            context.emit_status(SshStatus::ProcError(format!(
+            context.emit_status(SshStatus::AppError(format!(
                 "Failed to lock config: {err}"
             )));
             return;
@@ -369,7 +369,7 @@ fn kill_tunnel(context: Context) {
             Ok(mut child) => {
                 child.kill();
             }
-            Err(err) => context.emit_status(SshStatus::ProcError(format!(
+            Err(err) => context.emit_status(SshStatus::AppError(format!(
                 "Failed to kill tunnel: {err}"
             ))),
         },
