@@ -53,14 +53,6 @@ export const appStatus = {
 	},
 
 	/**
-	 *  Bad configuration parameters were passed to server
-	 * */
-	BAD_CONFIG: {
-		status: 'Invalid Params',
-		icon: 'err',
-	},
-
-	/**
 	 *  Server at IP address was unable to be reached
 	 * */
 	UNREACHABLE: {
@@ -73,6 +65,30 @@ export const appStatus = {
 	 * */
 	DENIED: {
 		status: 'Invalid Creds',
+		icon: 'err',
+	},
+
+	/**
+	 *  Bad configuration parameters were passed to server
+	 * */
+	BAD_CONFIG: {
+		status: 'Invalid Params',
+		icon: 'err',
+	},
+
+	/**
+	 *  Server error
+	 * */
+	ERROR: {
+		status: 'Server Error',
+		icon: 'err',
+	},
+
+	/**
+	 *  Unknown process exit error
+	 * */
+	UNKNOWN: {
+		status: 'Unknown Error',
 		icon: 'err',
 	},
 } as const
