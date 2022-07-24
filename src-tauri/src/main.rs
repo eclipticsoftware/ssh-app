@@ -260,7 +260,9 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
     let config = match settings.to_config() {
         Ok(cfg) => cfg,
         Err(_err) => {
-            return SshStatus::ConfigError("Illegal port value".to_string()).to_signal();
+            let status = SshStatus::ConfigError("Illegal port value".to_string());
+            context.emit_status(status.clone());
+            return status.to_signal();
         }
     };
 
