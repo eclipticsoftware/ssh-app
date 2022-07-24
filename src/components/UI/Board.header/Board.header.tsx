@@ -1,10 +1,10 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { useEffect } from 'react'
 import styled, { css } from 'styled-components'
+import { ServerStatus } from '../../../app.config'
 import useState from '../../../utils/useState'
-import { ConnectionStatus } from '../../Screens/Main.screen'
+import { useStore } from '../../Store/Store.provider'
 import { Icon } from '../Icon'
-import { IconType } from '../Icon/fa.defaults'
 import { Spinner } from '../Spinner'
 
 export const boardHeaderStyles = css`
@@ -87,49 +87,11 @@ const BoardHeaderView = styled.div`
 	${boardHeaderStyles}
 `
 
-type ParsedStatus = {
-	msg: string
-	icon: IconType
-}
-const parseStatus = (status: ConnectionStatus): ParsedStatus =>
-	status === 'OK'
-		? {
-				msg: 'Connected',
-				icon: 'ok',
-		  }
-		: status == 'CONNECTING'
-		? {
-				msg: 'Connecting',
-				icon: 'circle',
-		  }
-		: status === 'DROPPED'
-		? {
-				msg: 'Connection Dropped',
-				icon: 'err',
-		  }
-		: status === 'RETRYING'
-		? {
-				msg: 'Reconnecting',
-				icon: 'alert',
-		  }
-		: status === 'DISCONNECTED'
-		? {
-				msg: 'Ready',
-				icon: 'circle',
-		  }
-		: {
-				msg: 'Error Connecting',
-				icon: 'err',
-		  }
-
-export type BoardHeaderProps = {
-	status: ConnectionStatus | null
-	serverStatus: string
-}
-export const BoardHeader = ({ status, serverStatus }: BoardHeaderProps): JSX.Element => {
+export type BoardHeaderProps = {}
+export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
 	const [version, setVersion] = useState('', 'version')
-	const parsedStatus = status && parseStatus(status)
-	const { msg, icon } = parsedStatus || {}
+
+	const { status, statusMsg, statusIcon } = useStore()
 
 	useEffect(() => {
 		if (!version)
@@ -138,8 +100,13 @@ export const BoardHeader = ({ status, serverStatus }: BoardHeaderProps): JSX.Ele
 				.catch(() => {})
 	}, [version])
 
-	const classStatus =
-		status === 'OK' ? 'ok' : status === 'ERROR' || status === 'DROPPED' ? 'err' : 'generic'
+	const statusClass =
+		status === ServerStatus.connected
+			? 'ok'
+			: status !== ServerStatus.retrying && status !== ServerStatus.disconnected
+			? 'err'
+			: 'generic'
+
 	return (
 		<BoardHeaderView>
 			<Icon type='ssh' />
@@ -149,17 +116,17 @@ export const BoardHeader = ({ status, serverStatus }: BoardHeaderProps): JSX.Ele
 					Version: <span className='version'>{version}</span>
 				</p>
 				<p className='server-status'>
-					Server Status: <span>{serverStatus}</span>
+					Server Status: <span>{status}</span>
 				</p>
 			</div>
 			<div className='status-info'>
 				<h5>Status:</h5>
 
-				<div className={`status __${classStatus}`}>
-					<Icon type={icon || 'circle'} padRight />
+				<div className={`status __${statusClass}`}>
+					<Icon type={statusIcon || 'circle'} padRight />
 					<div className='msg'>
-						{msg}
-						{status === 'RETRYING' || status === 'CONNECTING' ? (
+						{statusMsg}
+						{status === ServerStatus.retrying || status === ServerStatus.connecting ? (
 							<Spinner type='dots' noBg isOverlay={false} height='sm' color='#fff' />
 						) : null}
 					</div>

@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api'
 import styled, { css } from 'styled-components'
-import { constants } from '../../../app.config'
+import { constants, ServerStatus } from '../../../app.config'
+import { useStore } from '../../Store/Store.provider'
 import { ErrorBlock } from '../../UI/ErrorBlock'
-import { ConnectionStatus } from '../Main.screen'
 
 export const connectedScreenStyles = css`
 	.disconnect-btn {
@@ -28,30 +28,25 @@ const ConnectedScreenView = styled.div`
 	${connectedScreenStyles}
 `
 
-export type ConnectedScreenProps = {
-	status: ConnectionStatus
-	onDisconnect: () => void
-	systemErr: string | null
-}
+export type ConnectedScreenProps = {}
 
-export const ConnectedScreen = ({
-	status,
-	systemErr,
-	onDisconnect,
-}: ConnectedScreenProps): JSX.Element => {
+export const ConnectedScreen = ({}: ConnectedScreenProps): JSX.Element => {
+	const { status, systemErr, setStatus } = useStore()
+
 	const disconnectHandler = async () => {
 		try {
 			await invoke(constants.endTunnel)
-			onDisconnect()
+			setStatus(ServerStatus.disconnected)
 		} catch {}
 	}
+
 	return (
 		<ConnectedScreenView>
 			{systemErr ? <ErrorBlock error={systemErr} /> : null}
 			<button
 				className='disconnect-btn'
 				onClick={disconnectHandler}
-				disabled={status === 'RETRYING'}
+				disabled={status === ServerStatus.retrying}
 			>
 				Disconnect
 			</button>

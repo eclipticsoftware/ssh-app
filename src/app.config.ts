@@ -2,29 +2,7 @@ export const canPrint = true
 
 export const userSettingsPath = 'eclo-ssh-client-user-settings.json'
 
-export const constants = {
-	/**
-	 *  Initial Connection Invocation
-	 * */
-	// start ssh connection invokation name
-	startTunnel: 'start_tunnel',
-
-	// connection invocation response
-	// server could not be found (bad IP address)
-
-	/**
-	 *  Disconnect Invocation
-	 * */
-	// end ssh connection invokation name
-	endTunnel: 'end_tunnel',
-
-	/**
-	 *  Connection Status Listener
-	 * */
-	// status listener name
-	tunnelStatus: 'tunnel_status',
-
-	// status listener response
+export const ServerStatus = {
 	connecting: 'CONNECTING',
 
 	// status listener response
@@ -48,4 +26,27 @@ export const constants = {
 	// status listener response
 	// server exists but credentials were bad
 	denied: 'DENIED',
+} as const
+
+type ServerStatusKeys = keyof typeof ServerStatus
+
+export type ServerStatus = typeof ServerStatus[ServerStatusKeys]
+
+export const constants = {
+	/**
+	 *  Initial Connection Invocation
+	 *  initiate ssh connection invokation name
+	 * */
+	startTunnel: 'start_tunnel',
+
+	/**
+	 *  Disconnect Invocation
+	 * 	initiate ssh disconnection invokation name
+	 * */
+	endTunnel: 'end_tunnel',
+
+	/**
+	 *  Server Status Listener
+	 * */
+	tunnelStatus: 'tunnel_status',
 }

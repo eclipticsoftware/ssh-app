@@ -1,12 +1,12 @@
 import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
 import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
-import { Dispatch } from 'react'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
-import { constants, userSettingsPath } from '../../../app.config'
+import { constants, ServerStatus, userSettingsPath } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
+import { useStore } from '../../Store/Store.provider'
 import { ErrorBlock } from '../../UI/ErrorBlock'
 import { FormikSelectFile } from '../../UI/Formik/Formik.fields/Formik.select.file'
 import { FormikSubmitBtn } from '../../UI/Formik/Formik.fields/Formik.submit'
@@ -32,20 +32,15 @@ const validationSchema = Yup.object().shape({
 	keyPath: Yup.string().required('Please select an SSH Key file'),
 })
 
-export type ConnectScreenProps = {
-	systemErr: string | null
-	setSystemErr: Dispatch<string>
-	connecting: boolean
-}
-export const ConnectScreen = ({
-	systemErr,
-	setSystemErr,
-	connecting,
-}: ConnectScreenProps): JSX.Element => {
+export type ConnectScreenProps = {}
+export const ConnectScreen = ({}: ConnectScreenProps): JSX.Element => {
+	const { status, setSystemErr, systemErr } = useStore()
 	const { loading, settings, error: settingsErr } = useSettings()
 	const { granted } = useGetNotificationPermission()
 
 	const initialVals = settings
+
+	const connecting = status === ServerStatus.connecting
 
 	const onSubmit = async (vals: typeof initialVals) => {
 		try {
