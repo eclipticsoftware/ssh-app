@@ -319,7 +319,11 @@ fn manage_spawn_result(
     let status = match result {
         Ok((tnl, _hndl)) => {
             context.set_tunnel(tnl);
-            SshStatus::Connecting
+            if context.reconnecting() {
+                SshStatus::Reconnecting
+            } else {
+                SshStatus::Connecting
+            }
         }
         Err(status) => {
             println!("Error during spawn: {:?}", status);
@@ -358,9 +362,7 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     };
 
     let result = spawn_new_tunnel(cfg.clone(), context.clone());
-    if result.is_err() {
-        manage_spawn_result(result, context);
-    }
+    manage_spawn_result(result, context);
 }
 
 /// Kills the tunnel process if it's running
@@ -369,6 +371,7 @@ fn kill_tunnel(context: Context) {
     match context.get_tunnel() {
         Some(tunnel) => match tunnel.lock() {
             Ok(mut child) => {
+                println!("Locked tunnel");
                 child.kill();
             }
             Err(err) => context.emit_status(SshStatus::AppError(format!(
