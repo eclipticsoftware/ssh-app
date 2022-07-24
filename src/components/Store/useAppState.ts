@@ -33,16 +33,21 @@ const reducer: Reducer<ReducerState, ServerStatus> = (state, serverStatus) => {
 			newState.statusIcon = 'err'
 			break
 		case ServerStatus.badConfig:
-			newState.statusMsg = 'Invalid Parameters'
+			newState.statusMsg = 'Invalid Params'
 			newState.statusIcon = 'err'
 			break
 		case ServerStatus.unreachable:
-			newState.statusMsg = 'Server Unreachable'
+			newState.statusMsg = 'No Server Found'
 			newState.statusIcon = 'err'
 			break
 		case ServerStatus.denied:
-			newState.statusMsg = 'Invalid Credentials'
+			newState.statusMsg = 'Invalid Creds'
 			newState.statusIcon = 'err'
+			break
+
+		case ServerStatus.exit:
+			newState.statusMsg = 'Ready'
+			newState.statusIcon = 'circle'
 			break
 
 		default:

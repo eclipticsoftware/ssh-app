@@ -3,28 +3,50 @@ export const canPrint = true
 export const userSettingsPath = 'eclo-ssh-client-user-settings.json'
 
 export const ServerStatus = {
-	connecting: 'CONNECTING',
-
-	// status listener response
-	connected: 'CONNECTED',
-
-	// status listener response
-	retrying: 'RETRYING',
-
-	// status listener response
-	dropped: 'DROPPED',
-
-	// status listener response
+	/**
+	 *  Initial app state
+	 * */
 	disconnected: 'DISCONNECTED',
 
-	// status listener response
+	/**
+	 *  SSH connection proceedure running
+	 * */
+	connecting: 'CONNECTING',
+
+	/**
+	 *  SSH connected
+	 * */
+	connected: 'CONNECTED',
+
+	/**
+	 *  SSH disconnection proceedure has run successfully
+	 *  App state after disconnecting
+	 * */
+	exit: 'EXIT',
+
+	/**
+	 *  Attempting to reconnect to SSH after connection was dropped
+	 * */
+	retrying: 'RETRYING',
+
+	/**
+	 *  Connection was unable to be reestablished after attempting reconnects
+	 * */
+	dropped: 'DROPPED',
+
+	/**
+	 *  Bad configuration parameters were passed to server
+	 * */
 	badConfig: 'BAD_CONFIG',
 
-	// status listener response
+	/**
+	 *  Server at IP address was unable to be reached
+	 * */
 	unreachable: 'UNREACHABLE',
 
-	// status listener response
-	// server exists but credentials were bad
+	/**
+	 *  Server at IP address denied the connection
+	 * */
 	denied: 'DENIED',
 } as const
 

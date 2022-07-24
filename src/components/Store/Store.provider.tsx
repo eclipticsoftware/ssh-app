@@ -35,7 +35,6 @@ export const StoreProvider = ({ children }: StoreProviderProps): JSX.Element => 
 	const state = useAppState()
 
 	useEffect(() => {
-		let cleanupErrListener: UnlistenFn
 		let cleanupSuccessListener: UnlistenFn
 
 		listen(constants.tunnelStatus, e => {
@@ -43,7 +42,6 @@ export const StoreProvider = ({ children }: StoreProviderProps): JSX.Element => 
 		}).then(handler => (cleanupSuccessListener = handler))
 
 		return () => {
-			if (typeof cleanupErrListener === 'function') cleanupErrListener()
 			if (typeof cleanupSuccessListener === 'function') cleanupSuccessListener()
 		}
 

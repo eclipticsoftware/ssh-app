@@ -34,7 +34,7 @@ const validationSchema = Yup.object().shape({
 
 export type ConnectScreenProps = {}
 export const ConnectScreen = ({}: ConnectScreenProps): JSX.Element => {
-	const { status, setSystemErr, systemErr } = useStore()
+	const { status, systemErr, setSystemErr } = useStore()
 	const { loading, settings, error: settingsErr } = useSettings()
 	const { granted } = useGetNotificationPermission()
 
@@ -43,6 +43,7 @@ export const ConnectScreen = ({}: ConnectScreenProps): JSX.Element => {
 	const connecting = status === ServerStatus.connecting
 
 	const onSubmit = async (vals: typeof initialVals) => {
+		setSystemErr(null)
 		try {
 			writeTextFile(
 				{ path: userSettingsPath, contents: JSON.stringify(vals) },

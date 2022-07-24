@@ -103,9 +103,12 @@ export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
 	const statusClass =
 		status === ServerStatus.connected
 			? 'ok'
-			: status !== ServerStatus.retrying && status !== ServerStatus.disconnected
-			? 'err'
-			: 'generic'
+			: status === ServerStatus.retrying ||
+			  status === ServerStatus.disconnected ||
+			  status === ServerStatus.exit ||
+			  status === ServerStatus.connecting
+			? 'generic'
+			: 'err'
 
 	return (
 		<BoardHeaderView>
@@ -120,7 +123,7 @@ export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
 				</p>
 			</div>
 			<div className='status-info'>
-				<h5>Status:</h5>
+				<h5>App Status:</h5>
 
 				<div className={`status __${statusClass}`}>
 					<Icon type={statusIcon || 'circle'} padRight />
