@@ -39,7 +39,7 @@ const validationSchema = Yup.object().shape({
 
 export type ConnectScreenProps = {}
 export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
-	const { status, systemErr, setSystemErr, setUserSettings } = useStore()
+	const { status, setSystemErr, setUserSettings } = useStore()
 	const { loading, settings, error: settingsErr } = useSettings()
 
 	const initialVals = settings
@@ -75,7 +75,6 @@ export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 					validationSchema={validationSchema}
 					enableReinitialize
 				>
-					{systemErr ? <ErrorBlock error={systemErr} /> : null}
 					<FormikText name='host' config={{ label: 'IP Address (host)', isReq: true }} />
 					<FormikText name='user' config={{ label: 'Username (user)', isReq: true }} />
 					<FormikText name='port' config={{ label: 'Local Port (to forward to)', isReq: true }} />

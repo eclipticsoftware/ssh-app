@@ -1,5 +1,7 @@
 import { ReactNode } from 'react'
 import styled, { css } from 'styled-components'
+import { useStore } from '../../Store/Store.provider'
+import { ErrorBlock } from '../ErrorBlock'
 
 export const boardStyles = css`
 	background: ${props => props.theme.colors.white.val};
@@ -20,8 +22,17 @@ export const boardStyles = css`
 	}
 
 	& > main {
-		padding: 3em 4em;
 		flex-grow: 1;
+
+		& > .system-err {
+			padding: 2em 4em;
+			padding-bottom: 0;
+		}
+
+		& > .screen {
+			padding: 3em 4em;
+			padding-top: 1em;
+		}
 	}
 `
 
@@ -35,10 +46,14 @@ export type BoardProps = {
 	className?: string
 }
 export const Board = ({ boardHeader, children, className }: BoardProps): JSX.Element => {
+	const { systemErr } = useStore()
 	return (
 		<BoardView className={`board${className ? ` ${className}` : ''}`}>
 			<header>{boardHeader}</header>
-			<main>{children}</main>
+			<main>
+				<div className='system-err'>{systemErr ? <ErrorBlock error={systemErr} /> : null}</div>
+				<div className='screen'>{children}</div>
+			</main>
 		</BoardView>
 	)
 }

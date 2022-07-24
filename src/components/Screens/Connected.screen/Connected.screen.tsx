@@ -2,9 +2,20 @@ import { invoke } from '@tauri-apps/api'
 import styled, { css } from 'styled-components'
 import { constants } from '../../../app.config'
 import { useStore } from '../../Store/Store.provider'
-import { ErrorBlock } from '../../UI/ErrorBlock'
 
 export const connectedScreenStyles = css`
+	.info {
+		padding: 1em;
+		margin-bottom: 1em;
+		color: ${props => props.theme.colors.grey.val};
+		border: solid 1px ${props => props.theme.colors.grey.light(1).val};
+		border-radius: 5px;
+
+		.port {
+			color: ${props => props.theme.colors.grey.dark(1).val};
+		}
+	}
+
 	.disconnect-btn {
 		outline: none;
 		box-shadow: none;
@@ -31,7 +42,8 @@ const ConnectedScreenView = styled.div`
 export type ConnectedScreenProps = {}
 
 export const ConnectedScreen = (_: ConnectedScreenProps): JSX.Element => {
-	const { status, systemErr } = useStore()
+	const { status, userSettings } = useStore()
+	const { port } = userSettings || {}
 
 	const disconnectHandler = async () => {
 		try {
@@ -41,7 +53,13 @@ export const ConnectedScreen = (_: ConnectedScreenProps): JSX.Element => {
 
 	return (
 		<ConnectedScreenView>
-			{systemErr ? <ErrorBlock error={systemErr} /> : null}
+			<div className='info'>
+				{port ? (
+					<div className='port-info'>
+						Listening on localhost PORT: <span className='port'>{port}</span>
+					</div>
+				) : null}
+			</div>
 			<button
 				className='disconnect-btn'
 				onClick={disconnectHandler}
