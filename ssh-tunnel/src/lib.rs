@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io::Read;
 use std::process;
 use std::sync::{Arc, Mutex};
@@ -83,10 +84,9 @@ where
             }
         };
 
-        if let Some(status) = child.wait_for_start() {
-            call_status_callback(status_callback, status)
-        } else {
-            call_status_callback(status_callback, SshStatus::Connected)
+        // If the tunnel failed to connect, the callback will be called during the exit
+        if child.wait_for_start().is_none() {
+            call_status_callback(status_callback, SshStatus::Connected);
         }
     });
 
@@ -272,7 +272,7 @@ impl ChildProc for TunnelChild {
 }
 
 /// Defines the set of statuses that ssh tunnel can have
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SshStatus {
     /// The tunnel is disconnected. It has either never connected, or it has disconnected cleanly
     Disconnected,
@@ -352,6 +352,12 @@ impl SshStatus {
             }
         };
         status.to_string()
+    }
+}
+
+impl fmt::Display for SshStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -450,8 +456,6 @@ impl SshConfig {
             .map(|a| a.to_string())
             .collect::<Vec<String>>(),
         );
-
-        println!("Args: {:?}", args);
         args
     }
 }
