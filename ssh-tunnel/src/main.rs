@@ -14,7 +14,7 @@ fn main() -> Result<(), i32> {
         match status {
             SshStatus::Dropped => println!("Dropped connection"),
             SshStatus::Unreachable => println!("Unreachable"),
-            SshStatus::Disconnected => println!("Disconnected cleanly"),
+            SshStatus::Ready => println!("Disconnected cleanly"),
             _ => println!("Unsupported status: {:?}", status),
         }
     }));
@@ -45,7 +45,7 @@ fn main() -> Result<(), i32> {
     println!("SSH tunnel started");
     let (ssh_status, exit_status) = handle.join().unwrap();
     match ssh_status {
-        SshStatus::Disconnected => Ok(()),
+        SshStatus::Ready => Ok(()),
         _ => Err(exit_status as i32),
     }
 }
