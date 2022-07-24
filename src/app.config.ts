@@ -1,58 +1,83 @@
+import { IconType } from './components/UI/Icon/fa.defaults'
+
 export const canPrint = true
 
 export const userSettingsPath = 'eclo-ssh-client-user-settings.json'
 
-export const ServerStatus = {
+export type AppStatus = {
+	[x in ServerStatus]: {
+		status: string
+		icon: IconType
+	}
+}
+
+export const appStatus = {
 	/**
-	 *  Initial app state
+	 *  Disconnected state (either initial app state, or after disconnecting)
 	 * */
-	disconnected: 'DISCONNECTED',
+	READY: {
+		status: 'Ready',
+		icon: 'circle',
+	},
 
 	/**
 	 *  SSH connection proceedure running
 	 * */
-	connecting: 'CONNECTING',
+	CONNECTING: {
+		status: 'Connecting',
+		icon: 'circle',
+	},
 
 	/**
 	 *  SSH connected
 	 * */
-	connected: 'CONNECTED',
-
-	/**
-	 *  SSH disconnection proceedure has run successfully
-	 *  App state after disconnecting
-	 * */
-	exit: 'EXIT',
+	CONNECTED: {
+		status: 'Connected',
+		icon: 'ok',
+	},
 
 	/**
 	 *  Attempting to reconnect to SSH after connection was dropped
 	 * */
-	retrying: 'RETRYING',
+	RETRYING: {
+		status: 'Reconnecting',
+		icon: 'alert',
+	},
 
 	/**
 	 *  Connection was unable to be reestablished after attempting reconnects
 	 * */
-	dropped: 'DROPPED',
+	DROPPED: {
+		status: 'Connection Dropped',
+		icon: 'err',
+	},
 
 	/**
 	 *  Bad configuration parameters were passed to server
 	 * */
-	badConfig: 'BAD_CONFIG',
+	BAD_CONFIG: {
+		status: 'Invalid Params',
+		icon: 'err',
+	},
 
 	/**
 	 *  Server at IP address was unable to be reached
 	 * */
-	unreachable: 'UNREACHABLE',
+	UNREACHABLE: {
+		status: 'No Server Found',
+		icon: 'err',
+	},
 
 	/**
 	 *  Server at IP address denied the connection
 	 * */
-	denied: 'DENIED',
+	DENIED: {
+		status: 'Invalid Creds',
+		icon: 'err',
+	},
 } as const
 
-type ServerStatusKeys = keyof typeof ServerStatus
-
-export type ServerStatus = typeof ServerStatus[ServerStatusKeys]
+export type ServerStatus = keyof typeof appStatus
 
 export const constants = {
 	/**

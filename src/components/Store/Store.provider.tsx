@@ -14,7 +14,7 @@ export type Store = {
 }
 
 const initialStore: Store = {
-	status: 'DISCONNECTED',
+	status: 'READY',
 	setStatus: () => {},
 	statusMsg: 'Ready',
 	systemErr: null,

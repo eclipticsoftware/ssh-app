@@ -3,7 +3,7 @@ import { sendNotification } from '@tauri-apps/api/notification'
 import { invoke } from '@tauri-apps/api/tauri'
 import styled, { css } from 'styled-components'
 import * as Yup from 'yup'
-import { constants, ServerStatus, userSettingsPath } from '../../../app.config'
+import { constants, userSettingsPath } from '../../../app.config'
 import { useGetNotificationPermission } from '../../../utils/useGetNotificationPermission'
 import { useSettings } from '../../../utils/useSettings'
 import { useStore } from '../../Store/Store.provider'
@@ -40,7 +40,7 @@ export const ConnectScreen = ({}: ConnectScreenProps): JSX.Element => {
 
 	const initialVals = settings
 
-	const connecting = status === ServerStatus.connecting
+	const connecting = status === 'CONNECTING'
 
 	const onSubmit = async (vals: typeof initialVals) => {
 		setSystemErr(null)

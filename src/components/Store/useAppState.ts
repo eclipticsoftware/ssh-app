@@ -1,6 +1,6 @@
 import { sendNotification } from '@tauri-apps/api/notification'
 import { Reducer, useEffect, useReducer, useState } from 'react'
-import { ServerStatus } from '../../app.config'
+import { appStatus, ServerStatus } from '../../app.config'
 import { useGetNotificationPermission } from '../../utils/useGetNotificationPermission'
 import { IconType } from '../UI/Icon/fa.defaults'
 import { Store } from './Store.provider'
@@ -11,48 +11,11 @@ type ReducerState = {
 }
 const reducer: Reducer<ReducerState, ServerStatus> = (state, serverStatus) => {
 	const newState = { ...state }
-	switch (serverStatus) {
-		case ServerStatus.disconnected:
-			newState.statusMsg = 'Ready'
-			newState.statusIcon = 'circle'
-			break
-		case ServerStatus.connecting:
-			newState.statusMsg = 'Connecting'
-			newState.statusIcon = 'circle'
-			break
-		case ServerStatus.connected:
-			newState.statusMsg = 'Connected'
-			newState.statusIcon = 'ok'
-			break
-		case ServerStatus.retrying:
-			newState.statusMsg = 'Reconnecting'
-			newState.statusIcon = 'alert'
-			break
-		case ServerStatus.dropped:
-			newState.statusMsg = 'Connection Dropped'
-			newState.statusIcon = 'err'
-			break
-		case ServerStatus.badConfig:
-			newState.statusMsg = 'Invalid Params'
-			newState.statusIcon = 'err'
-			break
-		case ServerStatus.unreachable:
-			newState.statusMsg = 'No Server Found'
-			newState.statusIcon = 'err'
-			break
-		case ServerStatus.denied:
-			newState.statusMsg = 'Invalid Creds'
-			newState.statusIcon = 'err'
-			break
 
-		case ServerStatus.exit:
-			newState.statusMsg = 'Ready'
-			newState.statusIcon = 'circle'
-			break
+	const { status, icon } = appStatus[serverStatus] || {}
 
-		default:
-			break
-	}
+	if (status) newState.statusMsg = status
+	if (icon) newState.statusIcon = icon
 
 	return newState
 }
@@ -63,26 +26,26 @@ export const useAppState = (): Store => {
 		statusIcon: 'circle',
 	})
 
-	const [status, setStatus] = useState<ServerStatus>('DISCONNECTED')
+	const [status, setStatus] = useState<ServerStatus>('READY')
 	const [systemErr, setSystemErr] = useState<string | null>(null)
 	const { granted } = useGetNotificationPermission()
 
 	useEffect(() => {
 		dispatch(status)
 
-		if (status === ServerStatus.connected) {
+		if (status === 'CONNECTED') {
 			if (granted)
 				sendNotification({
 					title: 'SUCCESS',
 					body: 'SSH Connected!',
 				})
-		} else if (status === ServerStatus.dropped) {
+		} else if (status === 'DROPPED') {
 			if (granted)
 				sendNotification({
 					title: 'ERROR',
 					body: 'SSH Connection Dropped!',
 				})
-		} else if (status === ServerStatus.denied) {
+		} else if (status === 'DENIED') {
 			setSystemErr('Incorrect username or bad ssh key')
 
 			if (granted)
@@ -90,7 +53,7 @@ export const useAppState = (): Store => {
 					title: 'ERROR',
 					body: 'Invalid Credentials!',
 				})
-		} else if (status === ServerStatus.unreachable) {
+		} else if (status === 'UNREACHABLE') {
 			setSystemErr('Incorrect IP Address')
 
 			if (granted)
@@ -98,15 +61,21 @@ export const useAppState = (): Store => {
 					title: 'ERROR',
 					body: 'Server Unavailable',
 				})
-		} else if (status === ServerStatus.retrying) {
+		} else if (status === 'RETRYING') {
 			if (granted)
 				sendNotification({
 					title: 'INTERRUPTION',
 					body: 'SSH Connection Interrupted!',
 				})
-		} else if (status?.includes(ServerStatus.badConfig)) {
-			const errMsg = status.substring(10)
+		} else if (status?.includes('BAD_CONFIG')) {
+			const errMsg = status.substring(11)
 			setSystemErr(`Invalid parameter(s): ${errMsg}`)
+		} else if (status?.includes('ERROR')) {
+			const errMsg = status.substring(6)
+			setSystemErr(`System Error: ${errMsg}`)
+		} else if (status?.includes('UNKNOWN')) {
+			const errMsg = status.substring(8)
+			setSystemErr(`Unknown Error: ${errMsg}`)
 		}
 	}, [status])
 

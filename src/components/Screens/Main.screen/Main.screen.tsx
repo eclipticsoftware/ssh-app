@@ -1,5 +1,4 @@
 import styled, { css } from 'styled-components'
-import { ServerStatus } from '../../../app.config'
 import { useStore } from '../../Store/Store.provider'
 import { Board } from '../../UI/Board'
 import { BoardHeader } from '../../UI/Board.header/Board.header'
@@ -27,7 +26,7 @@ const MainScreenView = styled.div`
 
 export const MainScreen = (): JSX.Element => {
 	const { status } = useStore()
-	const showConnectedScreen = status === ServerStatus.connected || status === ServerStatus.retrying
+	const showConnectedScreen = status === 'CONNECTED' || status === 'RETRYING'
 
 	return (
 		<MainScreenView>

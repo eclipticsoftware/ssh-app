@@ -1,7 +1,6 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { useEffect } from 'react'
 import styled, { css } from 'styled-components'
-import { ServerStatus } from '../../../app.config'
 import useState from '../../../utils/useState'
 import { useStore } from '../../Store/Store.provider'
 import { Icon } from '../Icon'
@@ -101,12 +100,9 @@ export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
 	}, [version])
 
 	const statusClass =
-		status === ServerStatus.connected
+		status === 'CONNECTED'
 			? 'ok'
-			: status === ServerStatus.retrying ||
-			  status === ServerStatus.disconnected ||
-			  status === ServerStatus.exit ||
-			  status === ServerStatus.connecting
+			: status === 'RETRYING' || status === 'READY' || status === 'CONNECTING'
 			? 'generic'
 			: 'err'
 
@@ -129,7 +125,7 @@ export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
 					<Icon type={statusIcon || 'circle'} padRight />
 					<div className='msg'>
 						{statusMsg}
-						{status === ServerStatus.retrying || status === ServerStatus.connecting ? (
+						{status === 'RETRYING' || status === 'CONNECTING' ? (
 							<Spinner type='dots' noBg isOverlay={false} height='sm' color='#fff' />
 						) : null}
 					</div>
