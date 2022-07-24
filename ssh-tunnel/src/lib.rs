@@ -15,8 +15,8 @@ use regex::Regex;
 pub trait ChildProc {
     fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus>;
 
-    /// Waits for the child process to start (or fail to start)
-    fn wait_for_start(&mut self) -> Option<SshStatus>;
+    /// Retrieves the stdout from the child
+    fn stdout(&mut self) -> Result<process::ChildStdout, SshStatus>;
 
     /// Checks whether the process has exited. If it has, then it returns the ExitCondition
     fn exited(&mut self) -> Option<ExitCondition>;
@@ -42,16 +42,15 @@ pub type SshHandle = thread::JoinHandle<(SshStatus, ExitCondition)>;
 /// giving the reason for the failure if not.
 pub fn start_wait_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>, SshStatus>
 where
-    T: ChildProc,
+    T: ChildProc + Send + 'static,
 {
     let tunnel = T::new(config)?;
-    let mut child = tunnel
-        .lock()
-        .map_err(|err| SshStatus::AppError(format!("Failed to lock tunnel: {err}")))?;
-    if child.wait_for_start().is_some() {
-        Err(child.exit_status())
-    } else {
-        Ok(tunnel.clone())
+    match wait_for_start(tunnel.clone()) {
+        Ok(_) => Ok(tunnel),
+        Err(_) => Err(tunnel
+            .lock()
+            .map_err(|err| SshStatus::AppError(format!("Failed to lock tunnel: {err}")))?
+            .exit_status()),
     }
 }
 
@@ -73,24 +72,50 @@ where
     let tunnel_sts = tunnel.clone();
 
     thread::spawn(move || {
-        let mut child = match tunnel_sts.lock() {
-            Ok(child) => child,
-            Err(err) => {
-                call_status_callback(
-                    status_callback,
-                    SshStatus::AppError(format!("Failed to lock tunnel: {err}")),
-                );
-                return;
+        if let Err(status) = wait_for_start(tunnel_sts) {
+            match status {
+                SshStatus::Ready => {},
+                _ => {
+                    call_status_callback(status_callback, status)
+                }
             }
-        };
-
-        // If the tunnel failed to connect, the callback will be called during the exit
-        if child.wait_for_start().is_none() {
-            call_status_callback(status_callback, SshStatus::Connected);
+        } else {
+            call_status_callback(status_callback, SshStatus::Connected)
         }
     });
 
     Ok(tunnel)
+}
+
+/// Waits for the ssh process to start without holding a lock on the tunnel
+///
+/// # Returns
+///
+/// * Returns `Ok` if the ssh process started without error
+/// * Returns `Err(SshStatus::Ready)` if the ssh process spawned, but there was an error. The details of this error
+///   can be read with the `ChildProc::exit_status()` method.
+/// * Returns `Err(AppError)` if there was an error in the process itself
+fn wait_for_start<T>(tunnel: SshTunnel<T>) -> Result<(), SshStatus>
+where
+    T: ChildProc + Send + 'static,
+{
+    let mut stdout = {
+        tunnel
+            .lock()
+            .map_err(|err| SshStatus::AppError(format!("Failed to lock tunnel: {err}")))?
+            .stdout()?
+    };
+
+    let mut buffer = [0; 15];
+    let len = stdout
+        .read(&mut buffer)
+        .map_err(|err| SshStatus::AppError(format!("Failed to read from stdout: {err}")))?;
+
+    if len >= 15 {
+        Ok(())
+    } else {
+        Err(SshStatus::Ready)
+    }
 }
 
 /// Watches a tunnel process and calls the given callback when it exits
@@ -196,25 +221,13 @@ impl ChildProc for TunnelChild {
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
-    // A few bytes will be printed to stdout once the login is complete. Wait for that output,
-    // or throw an error if it fails to happen
-    fn wait_for_start(&mut self) -> Option<SshStatus> {
-        let mut stdout = if let Some(stdout) = self.child.stdout.take() {
-            stdout
+    fn stdout(&mut self) -> Result<process::ChildStdout, SshStatus> {
+        if let Some(stdout) = self.child.stdout.take() {
+            Ok(stdout)
         } else {
-            return Some(SshStatus::AppError(
+            Err(SshStatus::AppError(
                 "Failed to capture stdout of ssh process".to_string(),
-            ));
-        };
-        let mut buffer = [0; 15];
-        let len = match stdout.read(&mut buffer) {
-            Err(err) => return Some(SshStatus::AppError(err.to_string())),
-            Ok(len) => len,
-        };
-        if len >= 15 {
-            None
-        } else {
-            Some(SshStatus::Ready)
+            ))
         }
     }
 
@@ -361,7 +374,7 @@ impl SshStatus {
                 format!("BAD_CONFIG: {msg}")
             }
             SshStatus::AppError(msg) => {
-                println!("Process error: {msg}");
+                println!("App error: {msg}");
                 format!("ERROR: {msg}")
             }
         }

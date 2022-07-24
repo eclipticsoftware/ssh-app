@@ -371,7 +371,6 @@ fn kill_tunnel(context: Context) {
     match context.get_tunnel() {
         Some(tunnel) => match tunnel.lock() {
             Ok(mut child) => {
-                println!("Locked tunnel");
                 child.kill();
             }
             Err(err) => context.emit_status(SshStatus::AppError(format!(
