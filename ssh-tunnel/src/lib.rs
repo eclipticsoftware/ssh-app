@@ -317,7 +317,10 @@ fn stderr_is_dropped(msg: &str) -> bool {
 }
 
 fn stderr_is_unreachable(msg: &str) -> bool {
-    msg.contains("timed out") || msg.contains("Network is unreachable") || msg.contains("Unknown error")
+    msg.contains("timed out")
+        || msg.contains("Network is unreachable")
+        || msg.contains("Unknown error")
+        || msg.contains("Could not resolve hostname")
 }
 
 impl SshStatus {
