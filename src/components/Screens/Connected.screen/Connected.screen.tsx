@@ -30,7 +30,7 @@ const ConnectedScreenView = styled.div`
 
 export type ConnectedScreenProps = {}
 
-export const ConnectedScreen = ({}: ConnectedScreenProps): JSX.Element => {
+export const ConnectedScreen = (_: ConnectedScreenProps): JSX.Element => {
 	const { status, systemErr } = useStore()
 
 	const disconnectHandler = async () => {

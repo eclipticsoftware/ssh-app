@@ -1,3 +1,9 @@
+/*
+ =================================================
+  APPLICATION STATE LOGIC
+  WARNING: This should only ever be used by the Store.provider component
+ =================================================
+* */
 import { sendNotification } from '@tauri-apps/api/notification'
 import { Reducer, useEffect, useReducer, useState } from 'react'
 import { appStatus, ServerStatus } from '../../app.config'
@@ -33,6 +39,7 @@ export const useAppState = (): Store => {
 	useEffect(() => {
 		dispatch(status)
 
+		// Do some extra stuff depending on the status...
 		if (status === 'CONNECTED') {
 			if (granted)
 				sendNotification({
@@ -68,6 +75,8 @@ export const useAppState = (): Store => {
 					body: 'SSH Connection Interrupted!',
 				})
 		}
+
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [status])
 
 	return {

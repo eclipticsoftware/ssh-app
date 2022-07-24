@@ -87,7 +87,7 @@ const BoardHeaderView = styled.div`
 `
 
 export type BoardHeaderProps = {}
-export const BoardHeader = ({}: BoardHeaderProps): JSX.Element => {
+export const BoardHeader = (_: BoardHeaderProps): JSX.Element => {
 	const [version, setVersion] = useState('', 'version')
 
 	const { status, statusMsg, statusIcon } = useStore()

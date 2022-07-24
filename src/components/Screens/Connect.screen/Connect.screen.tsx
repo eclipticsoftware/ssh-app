@@ -33,7 +33,7 @@ const validationSchema = Yup.object().shape({
 })
 
 export type ConnectScreenProps = {}
-export const ConnectScreen = ({}: ConnectScreenProps): JSX.Element => {
+export const ConnectScreen = (_: ConnectScreenProps): JSX.Element => {
 	const { status, systemErr, setSystemErr } = useStore()
 	const { loading, settings, error: settingsErr } = useSettings()
 	const { granted } = useGetNotificationPermission()

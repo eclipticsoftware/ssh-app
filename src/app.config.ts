@@ -70,6 +70,7 @@ export const appStatus = {
 
 	/**
 	 *  Bad configuration parameters were passed to server
+	 *  NOTE: Should also contain an additional error message appended by a colon
 	 * */
 	BAD_CONFIG: {
 		status: 'Invalid Params',
@@ -78,6 +79,7 @@ export const appStatus = {
 
 	/**
 	 *  Server error
+	 *  NOTE: Should also contain an additional error message appended by a colon
 	 * */
 	ERROR: {
 		status: 'Server Error',
@@ -86,6 +88,7 @@ export const appStatus = {
 
 	/**
 	 *  Unknown process exit error
+	 *  NOTE: Should also contain an additional error message appended by a colon
 	 * */
 	UNKNOWN: {
 		status: 'Unknown Error',
