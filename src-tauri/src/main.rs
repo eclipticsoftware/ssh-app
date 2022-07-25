@@ -3,10 +3,12 @@
     windows_subsystem = "windows"
 )]
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{thread, time::Duration};
 
 use serde::Deserialize;
+use tauri::api::path;
 use tauri::command;
 use tauri::{window::Window, RunEvent, State};
 
@@ -16,6 +18,19 @@ use tauri::ActivationPolicy;
 use ssh_tunnel::{ChildProc, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() {
+    let mut logpath = path::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    logpath.push(".eclo-ssh-client.log");
+
+    let logpath = logpath
+        .into_os_string()
+        .into_string()
+        .expect("Failed to create log path");
+
+    ssh_tunnel::configure_logger(&logpath);
+    log::debug!("Running Eclo SSH Client");
+
     let context = Context::new();
 
     let ctx_win_capt = context.clone();
@@ -23,16 +38,24 @@ fn main() {
     #[allow(unused_mut)]
     let mut app = tauri::Builder::default()
         .on_page_load(move |window, _| {
-            println!("Setting window");
+            log::debug!("Setting window");
             ctx_win_capt
                 .lock()
+                .map_err(|err| {
+                    log::error!("Failed to unlock context!!!");
+                    err
+                })
                 .expect("Failed to unlock context")
                 .window = Some(window);
         })
         .manage(context.clone())
         .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
         .build(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .map_err(|err| {
+            log::error!("Failed to build tauri application");
+            err
+        })
+        .expect("Failed to build tauri application");
 
     #[cfg(target_os = "macos")]
     app.set_activation_policy(ActivationPolicy::Regular);
@@ -40,7 +63,7 @@ fn main() {
     let ctx_app = context.clone();
     app.run(move |_app_handle, event| {
         if let RunEvent::ExitRequested { api: _, .. } = event {
-            println!("Exiting app...");
+            log::debug!("Exiting app...");
             kill_tunnel(ctx_app.clone());
         }
     })
@@ -107,6 +130,7 @@ impl Context {
         match self.lock() {
             Ok(inner) => inner,
             Err(status) => {
+                log::error!("Panicked trying to lock: {status}");
                 panic!("{status}");
             }
         }
@@ -131,12 +155,14 @@ impl Context {
 
         inner.status = status.clone();
 
-        println!("Updating status: {status}");
+        log::info!("Updating status: {status}");
         if let Some(window) = inner.window.as_ref() {
             if let Err(err) = window.emit("tunnel_status", Some(status.to_signal())) {
+                log::error!("Panicked while emitting status: {err}");
                 panic!("Tunnel status emit failed: {err}");
             }
         } else {
+            log::error!("Panicked while trying to get the window reference");
             panic!("Failed to get window reference");
         };
     }
@@ -266,7 +292,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
         }
     };
 
-    println!("Starting tunnel: {:?}", settings);
+    log::info!("Starting tunnel: {:?}", settings);
     let result = spawn_new_tunnel(config, (*context).clone());
     manage_spawn_result(result, (*context).clone())
 }
@@ -326,7 +352,7 @@ fn manage_spawn_result(
             }
         }
         Err(status) => {
-            println!("Error during spawn: {:?}", status);
+            log::error!("Error during spawn: {:?}", status);
             status
         }
     };
@@ -349,14 +375,12 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     thread::sleep(Duration::from_secs(3)); // Wait 3 seconds to try to reconnect
 
     let retries = context.get_retries();
-    println!("Attempting to reconnect. {retries} retries left");
+    log::info!("Attempting to reconnect. {retries} retries left");
 
     let cfg = match config.lock() {
         Ok(cfg) => cfg,
         Err(err) => {
-            context.emit_status(SshStatus::AppError(format!(
-                "Failed to lock config: {err}"
-            )));
+            context.emit_status(SshStatus::AppError(format!("Failed to lock config: {err}")));
             return;
         }
     };
@@ -367,15 +391,15 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
 
 /// Kills the tunnel process if it's running
 fn kill_tunnel(context: Context) {
-    println!("Killing tunnel");
+    log::info!("Killing tunnel");
     match context.get_tunnel() {
         Some(tunnel) => match tunnel.lock() {
             Ok(mut child) => {
                 child.kill();
             }
-            Err(err) => context.emit_status(SshStatus::AppError(format!(
-                "Failed to kill tunnel: {err}"
-            ))),
+            Err(err) => {
+                context.emit_status(SshStatus::AppError(format!("Failed to kill tunnel: {err}")))
+            }
         },
         None => {} // Just ignore it if there is no tunnel
     }

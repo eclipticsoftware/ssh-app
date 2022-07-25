@@ -1,21 +1,35 @@
 use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 
 use clap::Parser;
-
 use ssh_tunnel::ChildProc;
 use ssh_tunnel::{ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() -> Result<(), i32> {
     let args = Args::parse();
+
+    let mut logpath = dirs_next::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."));
+    
+    logpath.push(".eclo-ssh-client.log");
+
+    let logpath = logpath
+        .into_os_string()
+        .into_string()
+        .expect("Failed to create log path");
+    
+    ssh_tunnel::configure_logger(&logpath);
+    log::debug!("Running SSH Tunnel CLI");
+
     let config = args.to_config();
 
     let exit_callback = Arc::new(Mutex::new(|status| {
-        println!("Status: {:?}", status);
+        log::info!("Status: {:?}", status);
         match status {
-            SshStatus::Dropped => println!("Dropped connection"),
-            SshStatus::Unreachable => println!("Unreachable"),
-            SshStatus::Ready => println!("Disconnected cleanly"),
-            _ => println!("Unsupported status: {:?}", status),
+            SshStatus::Dropped => log::info!("Dropped connection"),
+            SshStatus::Unreachable => log::warn!("Unreachable"),
+            SshStatus::Ready => log::info!("Disconnected cleanly"),
+            _ => log::error!("Unsupported status: {:?}", status),
         }
     }));
 
@@ -27,22 +41,22 @@ fn main() -> Result<(), i32> {
             handle = hndl;
         }
         Err(err) => {
-            println!("Failed to create tunnel: {:?}", err);
+            log::error!("Failed to create tunnel: {:?}", err);
             return Err(ExitCondition::SshError as i32);
         }
     }
 
     ctrlc::set_handler(move || {
-        println!("\n\nClosing tunnel");
+        log::info!("Closing tunnel");
         let mut tunnel = tunnel.lock().unwrap();
         tunnel.kill();
     })
     .map_err(|err| {
-        println!("Failed to set handler: {:?}", err);
+        log::error!("Failed to set handler: {:?}", err);
         100
     })?;
 
-    println!("SSH tunnel started");
+    log::info!("SSH tunnel started");
     let (ssh_status, exit_status) = handle.join().unwrap();
     match ssh_status {
         SshStatus::Ready => Ok(()),

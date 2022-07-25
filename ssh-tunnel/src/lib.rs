@@ -7,6 +7,17 @@ use std::{thread, time::Duration};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
+use log::LevelFilter;
+use log4rs::{
+    append::{
+        console::ConsoleAppender,
+        file::FileAppender,
+    },
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+    filter::threshold::ThresholdFilter,
+};
+
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use regex::Regex;
@@ -182,7 +193,7 @@ where
 {
     match status_callback.lock() {
         Ok(mut cb) => cb(status),
-        Err(err) => println!("Failed to get exit callback handle: {err}"),
+        Err(err) => log::error!("Failed to get exit callback handle: {err}"),
     }
 }
 
@@ -234,12 +245,12 @@ impl ChildProc for TunnelChild {
     fn exited(&mut self) -> Option<ExitCondition> {
         match self.child.try_wait() {
             Ok(Some(status)) => {
-                println!("exited with {status}");
+                log::info!("exited with {status}");
                 if let Some(code) = status.code() {
                     match FromPrimitive::from_i32(code) {
                         Some(cond) => Some(cond),
                         None => {
-                            println!("Unknown exit code: {code}");
+                            log::warn!("Unknown exit code: {code}");
                             Some(ExitCondition::ProcError)
                         }
                     }
@@ -249,7 +260,7 @@ impl ChildProc for TunnelChild {
             }
             Ok(None) => None,
             Err(e) => {
-                println!("error attempting to wait: {e}");
+                log::error!("error attempting to wait: {e}");
                 Some(ExitCondition::ProcError)
             }
         }
@@ -271,7 +282,7 @@ impl ChildProc for TunnelChild {
                 .split('\n')
                 .filter(|s| !s.contains("Warning: Permanently added") && !s.is_empty())
                 .collect();
-            println!("exit status: {stderr_msg}");
+            log::info!("exit status: {stderr_msg}");
             SshStatus::from_stderr(&stderr_msg)
         }
     }
@@ -279,10 +290,10 @@ impl ChildProc for TunnelChild {
     fn kill(&mut self) {
         match self.child.kill() {
             Ok(_) => {
-                //println!("killed");
+                log::debug!("killed");
             }
-            Err(_err) => {
-                //println!("Not killed: {err}")
+            Err(err) => {
+                log::debug!("Not killed: {err}")
             }
         }
     }
@@ -485,6 +496,49 @@ impl SshConfig {
         args
     }
 }
+
+
+
+pub fn configure_logger(path: &str) {
+    let level = log::LevelFilter::Info;
+    //let file_path = ".tunnel.log";
+
+    // Build a stderr logger.
+    let stderr = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{m}{n}")))
+        .build();
+
+    // Logging to log file.
+    let logfile = FileAppender::builder()
+        // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
+        //.encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+        .build(path)
+        .unwrap();
+
+    // Log Trace level output to file where trace is the default level
+    // and the programmatically specified level to stderr.
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .appender(
+            Appender::builder()
+                .filter(Box::new(ThresholdFilter::new(level)))
+                .build("stderr", Box::new(stderr)),
+        )
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .appender("stderr")
+                .build(LevelFilter::Trace),
+        )
+        .unwrap();
+
+    // Use this to change log levels at runtime.
+    // This means you can change the default log level to trace
+    // if you are trying to debug an issue and need more logs on then turn it off
+    // once you are done.
+    let _handle = log4rs::init_config(config).unwrap();
+}
+
 
 #[cfg(test)]
 mod tests {
