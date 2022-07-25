@@ -9,10 +9,7 @@ use std::os::windows::process::CommandExt;
 
 use log::LevelFilter;
 use log4rs::{
-    append::{
-        console::ConsoleAppender,
-        file::FileAppender,
-    },
+    append::{console::ConsoleAppender, file::FileAppender},
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
     filter::threshold::ThresholdFilter,
@@ -82,13 +79,13 @@ where
     let tunnel = T::new(config)?;
     let tunnel_sts = tunnel.clone();
 
+    log::debug!("Spawning start watcher");
     thread::spawn(move || {
         if let Err(status) = wait_for_start(tunnel_sts) {
+            log::debug!("Start status: {status}");
             match status {
-                SshStatus::Ready => {},
-                _ => {
-                    call_status_callback(status_callback, status)
-                }
+                SshStatus::Ready => {}
+                _ => call_status_callback(status_callback, status),
             }
         } else {
             call_status_callback(status_callback, SshStatus::Connected)
@@ -121,6 +118,8 @@ where
     let len = stdout
         .read(&mut buffer)
         .map_err(|err| SshStatus::AppError(format!("Failed to read from stdout: {err}")))?;
+
+    log::debug!("stdout: {}", String::from_utf8_lossy(&buffer));
 
     if len >= 15 {
         Ok(())
@@ -182,6 +181,7 @@ where
         start_ssh_tunnel(config, callback.clone())
     }?;
     let watched_tunnel = tunnel.clone();
+    log::debug!("Spawning watcher thread");
     let handle = std::thread::spawn(move || ssh_watch_loop(watched_tunnel, callback));
 
     Ok((tunnel, handle))
@@ -205,6 +205,7 @@ pub struct TunnelChild {
 impl ChildProc for TunnelChild {
     #[cfg(not(target_os = "windows"))]
     fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+        log::debug!("Starting ssh process");
         let child = process::Command::new("ssh")
             .args(config.to_args())
             .stdout(process::Stdio::piped())
@@ -212,6 +213,7 @@ impl ChildProc for TunnelChild {
             .spawn()
             .map_err(|err| SshStatus::AppError(err.to_string()))?;
 
+        log::debug!("New child address: {:p}", &child);
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
@@ -223,16 +225,19 @@ impl ChildProc for TunnelChild {
             cmd.raw_arg(arg);
         }
 
+        log::debug!("Starting ssh process");
         let child = cmd
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
             .spawn()
             .map_err(|err| SshStatus::AppError(err.to_string()))?;
 
+        log::debug!("New child address: {:p}", &child);
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
     fn stdout(&mut self) -> Result<process::ChildStdout, SshStatus> {
+        log::debug!("Getting stdout from {:p}", &self.child);
         if let Some(stdout) = self.child.stdout.take() {
             Ok(stdout)
         } else {
@@ -245,7 +250,7 @@ impl ChildProc for TunnelChild {
     fn exited(&mut self) -> Option<ExitCondition> {
         match self.child.try_wait() {
             Ok(Some(status)) => {
-                log::info!("exited with {status}");
+                log::debug!("{:p} Exited with {status}", &self.child);
                 if let Some(code) = status.code() {
                     match FromPrimitive::from_i32(code) {
                         Some(cond) => Some(cond),
@@ -260,7 +265,7 @@ impl ChildProc for TunnelChild {
             }
             Ok(None) => None,
             Err(e) => {
-                log::error!("error attempting to wait: {e}");
+                log::error!("Error attempting to wait for {:p}: {e}", &self.child);
                 Some(ExitCondition::ProcError)
             }
         }
@@ -268,6 +273,7 @@ impl ChildProc for TunnelChild {
 
     //Capture stderr to discover exit reason
     fn exit_status(&mut self) -> SshStatus {
+        log::debug!("Getting exit status from {:p}", &self.child);
         let mut stderr = if let Some(stderr) = self.child.stderr.take() {
             stderr
         } else {
@@ -288,6 +294,7 @@ impl ChildProc for TunnelChild {
     }
 
     fn kill(&mut self) {
+        log::debug!("Killing {:p}", &self.child);
         match self.child.kill() {
             Ok(_) => {
                 log::debug!("killed");
@@ -361,7 +368,7 @@ impl SshStatus {
         } else if msg.contains("Bad local forwarding specification") {
             SshStatus::ConfigError(msg.to_string())
         } else {
-            println!("Other status: {msg}");
+            log::debug!("Other status: {msg}");
             SshStatus::Unknown(msg.to_string())
         }
     }
@@ -493,11 +500,10 @@ impl SshConfig {
             .map(|a| a.to_string())
             .collect::<Vec<String>>(),
         );
+        log::debug!("Args: {:?}", args);
         args
     }
 }
-
-
 
 pub fn configure_logger(path: &str) {
     let level = log::LevelFilter::Info;
@@ -538,7 +544,6 @@ pub fn configure_logger(path: &str) {
     // once you are done.
     let _handle = log4rs::init_config(config).unwrap();
 }
-
 
 #[cfg(test)]
 mod tests {

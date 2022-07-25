@@ -18,8 +18,7 @@ use tauri::ActivationPolicy;
 use ssh_tunnel::{ChildProc, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
 
 fn main() {
-    let mut logpath = path::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."));
+    let mut logpath = path::home_dir().unwrap_or_else(|| PathBuf::from("."));
 
     logpath.push(".eclo-ssh-client.log");
 
@@ -306,12 +305,14 @@ fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
 ) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
+    log::debug!("Spawning new tunnel");
     let context_thread = context.clone();
     let config_thread = Arc::new(Mutex::new(config.clone()));
     let callback = Arc::new(Mutex::new(move |status| {
         let status = match status {
             SshStatus::Dropped => {
                 // Attempt to reconnect in separate thread
+                log::debug!("Dropped tunnel connection");
                 context.start_reconnect();
                 spawn_reconnect(config_thread.clone(), context_thread.clone());
                 SshStatus::Reconnecting
@@ -319,10 +320,12 @@ fn spawn_new_tunnel(
             SshStatus::Unreachable => {
                 if context.decr_retries() > 0 {
                     // Continue trying to reconnect
+                    log::debug!("Continuing reconnect attempt");
                     spawn_reconnect(config_thread.clone(), context_thread.clone());
                     SshStatus::Reconnecting
                 } else if context.reconnecting() {
                     // We failed to reconnect, so we have dropped
+                    log::debug!("Aborting reconnect attempt");
                     context.stop_reconnect();
                     SshStatus::Dropped
                 } else {
