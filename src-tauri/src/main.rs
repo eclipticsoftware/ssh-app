@@ -258,11 +258,13 @@ impl UserSettings<'_> {
     /// Converts the user settings to an SshConfig object
     fn to_config(&self) -> Result<SshConfig, std::num::ParseIntError> {
         let port = self.port.parse()?;
-        let flags = if cfg!(target_os = "windows") {
-            vec!["-T"]
-        } else {
-            vec!["-t", "-t"]
-        };
+        let flags = vec!["-t", "-t"];
+
+        // if cfg!(target_os = "windows") {
+        //     vec!["-T"]
+        // } else {
+        //     vec!["-t", "-t"]
+        // };
 
         Ok(SshConfig::new(
             self.host,
