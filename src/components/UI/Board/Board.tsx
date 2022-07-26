@@ -78,7 +78,7 @@ export const Board = ({ boardHeader, children, className }: BoardProps): JSX.Ele
 			<footer>
 				<div className='status-history'>
 					{history.map(({ isoTimestamp, status }) => (
-						<div className='history-item'>
+						<div className='history-item' key={isoTimestamp}>
 							<div className='time'>{isoTimestamp}</div>-<div className='status'>{status}</div>
 						</div>
 					))}
