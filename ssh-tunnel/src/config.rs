@@ -58,9 +58,7 @@ impl SshConfig {
         args.append(
             &mut vec![
                 "-o",
-                "UserKnownHostsFile=/dev/null",
-                "-o",
-                "StrictHostKeyChecking=no",
+                "StrictHostKeyChecking=accept-new",
                 "-o",
                 "ServerAliveCountMax=1",
                 "-o",
