@@ -9,14 +9,14 @@ use std::os::windows::process::CommandExt;
 use num_traits::FromPrimitive;
 
 use crate::config::SshConfig;
-use crate::status::{ExitCondition, SshStatus};
+use crate::status::{ExitCondition, Result, SshStatus};
 
 /// Defines the necessary interface that a child process type must support to be used by the tunnel library
 pub trait ChildProc {
-    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus>;
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>>;
 
     /// Retrieves the stdout from the child
-    fn stdout(&mut self) -> Result<process::ChildStdout, SshStatus>;
+    fn stdout(&mut self) -> Result<process::ChildStdout>;
 
     /// Checks whether the process has exited. If it has, then it returns the ExitCondition
     fn exited(&mut self) -> Option<ExitCondition>;
@@ -41,7 +41,7 @@ pub struct TunnelChild {
 
 impl ChildProc for TunnelChild {
     #[cfg(not(target_os = "windows"))]
-    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>> {
         log::debug!("Starting ssh process");
         let child = process::Command::new("ssh")
             .args(config.to_args())
@@ -55,7 +55,7 @@ impl ChildProc for TunnelChild {
     }
 
     #[cfg(target_os = "windows")]
-    fn new(config: SshConfig) -> Result<SshTunnel<Self>, SshStatus> {
+    fn new(config: SshConfig) -> Result<SshTunnel<Self>> {
         let mut cmd = process::Command::new("ssh");
 
         for arg in config.to_args() {
@@ -73,7 +73,7 @@ impl ChildProc for TunnelChild {
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
-    fn stdout(&mut self) -> Result<process::ChildStdout, SshStatus> {
+    fn stdout(&mut self) -> Result<process::ChildStdout> {
         log::debug!("Getting stdout from {:p}", &self.child);
         if let Some(stdout) = self.child.stdout.take() {
             Ok(stdout)

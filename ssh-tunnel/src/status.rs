@@ -1,6 +1,9 @@
 use num_derive::FromPrimitive;
 use regex::Regex;
 use std::fmt;
+use std::result;
+
+pub type Result<T> = result::Result<T, SshStatus>;
 
 /// Defines the set of statuses that ssh tunnel can have
 #[derive(Debug, Clone, PartialEq)]

@@ -4,6 +4,7 @@
 )]
 
 use std::path::PathBuf;
+use std::result;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{thread, time::Duration};
 
@@ -17,9 +18,9 @@ use tauri::ActivationPolicy;
 
 use ssh_tunnel::{
     config::SshConfig,
-    status::SshStatus,
-    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
     logger,
+    status::{Result, SshStatus},
+    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
 };
 
 fn main() {
@@ -121,7 +122,7 @@ impl Context {
     }
 
     /// Locks the inner context
-    fn lock(&self) -> Result<MutexGuard<ContextInner>, SshStatus> {
+    fn lock(&self) -> Result<MutexGuard<ContextInner>> {
         self.0
             .lock()
             .map_err(|err| SshStatus::AppError(format!("Failed to lock context: {err}")))
@@ -264,7 +265,7 @@ struct UserSettings<'a> {
 
 impl UserSettings<'_> {
     /// Converts the user settings to an SshConfig object
-    fn to_config(&self) -> Result<SshConfig, std::num::ParseIntError> {
+    fn to_config(&self) -> result::Result<SshConfig, std::num::ParseIntError> {
         let port = self.port.parse()?;
         let flags = vec!["-t", "-t"];
 
@@ -314,7 +315,7 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
 fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
-) -> Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus> {
+) -> Result<(SshTunnel<TunnelChild>, SshHandle)> {
     log::debug!("Spawning new tunnel");
     let context_thread = context.clone();
     let config_thread = Arc::new(Mutex::new(config.clone()));
@@ -352,7 +353,7 @@ fn spawn_new_tunnel(
 
 /// Checks the result sent from `spawn_new_tunnel()` or `attempt_reconnect()` and updates the status on the front end
 fn manage_spawn_result(
-    result: Result<(SshTunnel<TunnelChild>, SshHandle), SshStatus>,
+    result: Result<(SshTunnel<TunnelChild>, SshHandle)>,
     context: Context,
 ) -> String {
     let status = match result {

@@ -9,7 +9,7 @@ pub mod tunnel;
 
 use crate::{
     config::SshConfig,
-    status::{ExitCondition, SshStatus},
+    status::{ExitCondition, Result, SshStatus},
     tunnel::{ChildProc, SshHandle, SshTunnel},
 };
 
@@ -19,7 +19,7 @@ use crate::{
 ///
 /// Returns a result with the tunnel process if it was successfully spawned, and with a status
 /// giving the reason for the failure if not.
-pub fn start_wait_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>, SshStatus>
+pub fn start_wait_ssh_tunnel<T>(config: SshConfig) -> Result<SshTunnel<T>>
 where
     T: ChildProc + Send + 'static,
 {
@@ -42,7 +42,7 @@ where
 pub fn start_ssh_tunnel<T, F>(
     config: SshConfig,
     status_callback: Arc<Mutex<F>>,
-) -> Result<SshTunnel<T>, SshStatus>
+) -> Result<SshTunnel<T>>
 where
     T: ChildProc + Send + 'static,
     F: FnMut(SshStatus) + Send + 'static,
@@ -74,7 +74,7 @@ where
 /// * Returns `Err(SshStatus::Ready)` if the ssh process spawned, but there was an error. The details of this error
 ///   can be read with the `ChildProc::exit_status()` method.
 /// * Returns `Err(AppError)` if there was an error in the process itself
-fn wait_for_start<T>(tunnel: SshTunnel<T>) -> Result<(), SshStatus>
+fn wait_for_start<T>(tunnel: SshTunnel<T>) -> Result<()>
 where
     T: ChildProc + Send + 'static,
 {
@@ -141,7 +141,7 @@ pub fn start_and_watch_ssh_tunnel<T, F>(
     config: SshConfig,
     callback: Arc<Mutex<F>>,
     wait: bool,
-) -> Result<(SshTunnel<T>, SshHandle), SshStatus>
+) -> Result<(SshTunnel<T>, SshHandle)>
 where
     T: ChildProc + Send + 'static,
     F: FnMut(SshStatus) + Send + 'static,
@@ -158,6 +158,7 @@ where
     Ok((tunnel, handle))
 }
 
+/// Helper function to call the status callback
 fn call_status_callback<F>(status_callback: Arc<Mutex<F>>, status: SshStatus)
 where
     F: FnMut(SshStatus) + Send,
