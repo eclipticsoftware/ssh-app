@@ -1,5 +1,8 @@
 use std::fmt;
+use std::io;
+use std::fs;
 use std::io::Read;
+use std::path::Path;
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
@@ -384,15 +387,15 @@ impl SshStatus {
             SshStatus::Dropped => "DROPPED".to_string(),
             SshStatus::Reconnecting => "RETRYING".to_string(),
             SshStatus::Unknown(msg) => {
-                println!("Unknown error: {msg}");
+                log::error!("Unknown error: {msg}");
                 format!("UNKNOWN: {msg}")
             }
             SshStatus::ConfigError(msg) => {
-                println!("Config error: {msg}");
+                log::error!("Config error: {msg}");
                 format!("BAD_CONFIG: {msg}")
             }
             SshStatus::AppError(msg) => {
-                println!("App error: {msg}");
+                log::error!("App error: {msg}");
                 format!("ERROR: {msg}")
             }
         }
@@ -505,7 +508,35 @@ impl SshConfig {
     }
 }
 
-pub fn configure_logger(path: &str) {
+fn cycle_logs(path: &str) -> io::Result<()> {
+    let path = Path::new(path);
+    let dir = path.parent().expect("Bad log path: no parent dir");
+    let stem = path.file_stem()
+        .expect("Bad log path: no stem")
+        .to_string_lossy();
+
+    let ext = path.extension()
+        .expect("Bad log path: no extension")
+        .to_string_lossy();
+
+    for ver in (0..5).rev() {
+        let old = dir.join(&format!("{stem}.{ver}.{ext}"));
+        let new = dir.join(&format!("{stem}.{}.{ext}", ver + 1));
+        
+        if fs::metadata(&old).is_ok() {
+            fs::rename(old, new)?;
+        }
+    }
+
+    if fs::metadata(path).is_ok() {
+        let new = dir.join(format!("{stem}.0.{ext}"));
+        fs::rename(path, new)?;
+    }
+    
+    Ok(())
+}
+
+pub fn configure_logger(path: &str) -> io::Result<()> {
     let level = log::LevelFilter::Info;
     //let file_path = ".tunnel.log";
 
@@ -514,12 +545,16 @@ pub fn configure_logger(path: &str) {
         .encoder(Box::new(PatternEncoder::new("{m}{n}")))
         .build();
 
+    cycle_logs(path)?;
+
     // Logging to log file.
     let logfile = FileAppender::builder()
         // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
         //.encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
         .build(path)
-        .unwrap();
+        .map_err(|err| {
+            io::Error::new(io::ErrorKind::Other , format!("Failed to create log file: {err}"))
+        })?;
 
     // Log Trace level output to file where trace is the default level
     // and the programmatically specified level to stderr.
@@ -536,13 +571,20 @@ pub fn configure_logger(path: &str) {
                 .appender("stderr")
                 .build(LevelFilter::Trace),
         )
-        .unwrap();
+        .map_err(|err| {
+            io::Error::new(io::ErrorKind::Other , format!("Failed to build log config: {err}"))
+        })?;
+
 
     // Use this to change log levels at runtime.
     // This means you can change the default log level to trace
     // if you are trying to debug an issue and need more logs on then turn it off
     // once you are done.
-    let _handle = log4rs::init_config(config).unwrap();
+    let _handle = log4rs::init_config(config).map_err(|err| {
+            io::Error::new(io::ErrorKind::Other , format!("Failed to create log handler: {err}"))
+        })?;
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -18,7 +18,11 @@ fn main() -> Result<(), i32> {
         .into_string()
         .expect("Failed to create log path");
     
-    ssh_tunnel::configure_logger(&logpath);
+    ssh_tunnel::configure_logger(&logpath).map_err(|err| {
+        println!("Failed to configure logger: {err}");
+        1
+    })?;
+
     log::debug!("Running SSH Tunnel CLI");
 
     let config = args.to_config();

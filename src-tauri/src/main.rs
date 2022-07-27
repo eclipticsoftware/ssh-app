@@ -27,7 +27,9 @@ fn main() {
         .into_string()
         .expect("Failed to create log path");
 
-    ssh_tunnel::configure_logger(&logpath);
+    if let Err(err) = ssh_tunnel::configure_logger(&logpath) {
+        panic!("Failed to configure logger: {err}");
+    }
     log::debug!("Running Eclo SSH Client");
 
     let context = Context::new();
