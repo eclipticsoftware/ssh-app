@@ -6,7 +6,8 @@ use ssh_tunnel::{
     config::SshConfig,
     logger,
     status::{ExitCondition, SshStatus},
-    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
+    tunnel::{ChildProc, SshTunnel, TunnelChild},
+    SshHandle,
 };
 
 fn main() -> Result<(), i32> {
@@ -31,12 +32,12 @@ fn main() -> Result<(), i32> {
     let config = args.to_config();
 
     let exit_callback = Arc::new(Mutex::new(|status| {
-        log::info!("Status: {:?}", status);
+        log::info!("Status: {status}");
         match status {
             SshStatus::Dropped => log::info!("Dropped connection"),
             SshStatus::Unreachable => log::warn!("Unreachable"),
             SshStatus::Ready => log::info!("Disconnected cleanly"),
-            _ => log::error!("Unsupported status: {:?}", status),
+            _ => log::error!("Unsupported status: {status}"),
         }
     }));
 
@@ -47,8 +48,8 @@ fn main() -> Result<(), i32> {
             tunnel = tnl;
             handle = hndl;
         }
-        Err(err) => {
-            log::error!("Failed to create tunnel: {:?}", err);
+        Err(status) => {
+            log::error!("Failed to create tunnel: {status}");
             return Err(ExitCondition::SshError as i32);
         }
     }

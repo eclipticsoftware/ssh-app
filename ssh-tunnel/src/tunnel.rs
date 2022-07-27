@@ -1,7 +1,6 @@
 use std::io::Read;
 use std::process;
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -13,26 +12,40 @@ use crate::status::{ExitCondition, Result, SshStatus};
 
 /// Defines the necessary interface that a child process type must support to be used by the tunnel library
 pub trait ChildProc {
+    /// Spawns a new ssh child process using the given [config](SshConfig) object.
+    ///
+    /// # Errors
+    ///
+    /// If the process fails to spawn, [SshStatus::AppError] will be returned.
     fn new(config: SshConfig) -> Result<SshTunnel<Self>>;
 
-    /// Retrieves the stdout from the child
+    /// Retrieves the stdout stream from the child
+    ///
+    /// The caller takes ownership of the stdout object, so this function may only be called once. Subsequent calls will
+    /// return an [Err].
+    ///
+    /// # Errors
+    ///
+    /// Will return an [SshStatus::AppError] if there is a failure to get a handle to the stdout stream.
     fn stdout(&mut self) -> Result<process::ChildStdout>;
 
-    /// Checks whether the process has exited. If it has, then it returns the ExitCondition
+    /// Checks whether the process has exited. If it has, then it returns the ExitCondition.
     fn exited(&mut self) -> Option<ExitCondition>;
 
-    /// Captures the exit reason from the process and returns the corresponding SshStatus
+    /// Captures the exit reason from the process and returns the corresponding SshStatus.
+    ///
+    /// This function will consume the text from the stderr stream, so it should only be called once. Subsequent calls will
+    /// return [SshStatus::AppError].
     fn exit_status(&mut self) -> SshStatus;
 
-    /// Kills the process
+    /// Kills the child process.
+    ///
+    /// This function may be called multiple times, but it will only have an effect on the first call (for obvious reasons).
     fn kill(&mut self);
 }
 
 /// A thread-safe wrapper for a tunnel process
 pub type SshTunnel<T> = Arc<Mutex<T>>;
-
-/// A process-watching thread handle
-pub type SshHandle = thread::JoinHandle<(SshStatus, ExitCondition)>;
 
 /// Wraps the standard process::Child struct
 pub struct TunnelChild {
@@ -40,6 +53,7 @@ pub struct TunnelChild {
 }
 
 impl ChildProc for TunnelChild {
+    // On non-windows platforms, the arguments are give directly.
     #[cfg(not(target_os = "windows"))]
     fn new(config: SshConfig) -> Result<SshTunnel<Self>> {
         log::debug!("Starting ssh process");
@@ -54,6 +68,7 @@ impl ChildProc for TunnelChild {
         Ok(Arc::new(Mutex::new(TunnelChild { child })))
     }
 
+    // On windows, all arguments need to be given as raw args.
     #[cfg(target_os = "windows")]
     fn new(config: SshConfig) -> Result<SshTunnel<Self>> {
         let mut cmd = process::Command::new("ssh");
@@ -130,6 +145,11 @@ impl ChildProc for TunnelChild {
         }
     }
 
+    // Kills the child and eats any errors, since there's nothing to do about them anyway.
+    //
+    // It's common for the process to die before the [std::process::ChildProc::kill] function completes. When this happens,
+    // it returns an error, but that's totally fine, since the process died anyway. I have yet to see a child process left
+    // dangling after the parent dies.
     fn kill(&mut self) {
         log::debug!("Killing {:p}", &self.child);
         match self.child.kill() {

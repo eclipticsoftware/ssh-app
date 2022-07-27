@@ -12,9 +12,15 @@ use log4rs::{
 
 /// Configures the logger
 ///
-/// The logger will print to both stderr (for informational and error statements) and a log file
-/// at the given path (for all statements, including debug and trace statements). A new log file
-/// will be generated for each invocation, and the previous five logs will be cycled.
+/// The logger will print to both stderr (for informational and error statements) and a log file at the given path (for all
+/// statements, including debug and trace statements). A new log file will be generated for each invocation, and the previous
+/// five logs will be cycled and renamed, such that the last log file is renamed `<path>.0.<ext>`, the next youngest file is
+/// renamed `<path>.1.<ext>`, etc... up to five logs.
+///
+/// # Errors
+///
+/// When the old logs are cycled, this function will return an error in any cases in which [std::fs::rename] would return
+/// errors. It will also return errors if the logger configuration fails.
 pub fn configure_logger(path: &str) -> io::Result<()> {
     let level = log::LevelFilter::Info;
 
@@ -67,8 +73,12 @@ pub fn configure_logger(path: &str) -> io::Result<()> {
 
 /// Cycles previous log files
 ///
-/// The cycling is done such that the last log file is renamed <path>.0.<ext>, the next youngest file is renamed
-/// <path>.1.<ext>, etc... up to five logs.
+/// The cycling is done such that the last log file is renamed `<path>.0.<ext>`, the next youngest file is renamed
+/// `<path>.1.<ext>`, etc... up to five logs.
+///
+/// # Errors
+///
+/// This function will return an error in any cases in which [std::fs::rename] would return errors.
 fn cycle_logs(path: &str) -> io::Result<()> {
     let path = Path::new(path);
     let dir = path.parent().expect("Bad log path: no parent dir");

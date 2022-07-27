@@ -20,7 +20,8 @@ use ssh_tunnel::{
     config::SshConfig,
     logger,
     status::{Result, SshStatus},
-    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
+    tunnel::{ChildProc, SshTunnel, TunnelChild},
+    SshHandle,
 };
 
 fn main() {
@@ -39,11 +40,11 @@ fn main() {
     log::debug!("Running Eclo SSH Client");
 
     let context = Context::new();
-
-    let ctx_win_capt = context.clone();
+    let ctx_win_capt = context.clone(); // context for the on_page_load callback
 
     #[allow(unused_mut)]
     let mut app = tauri::Builder::default()
+        // Gets a handle to the window when the page loads
         .on_page_load(move |window, _| {
             log::debug!("Setting window");
             ctx_win_capt
@@ -55,8 +56,11 @@ fn main() {
                 .expect("Failed to unlock context")
                 .window = Some(window);
         })
+        // Tells the framework that it needs to manage the context
         .manage(context.clone())
+        // Sets the handler functions
         .invoke_handler(tauri::generate_handler![start_tunnel, end_tunnel,])
+        // Builds the app
         .build(tauri::generate_context!())
         .map_err(|err| {
             log::error!("Failed to build tauri application");
@@ -64,22 +68,24 @@ fn main() {
         })
         .expect("Failed to build tauri application");
 
+    // Set the activation policy to regular for mac
     #[cfg(target_os = "macos")]
     app.set_activation_policy(ActivationPolicy::Regular);
 
-    let ctx_app = context.clone();
+    // Run the app with a callback to handle the ExitRequested event. This allows the app to kill the tunnel
+    // when the user closes it while the tunnel process is still running.
     app.run(move |_app_handle, event| {
         if let RunEvent::ExitRequested { api: _, .. } = event {
             log::debug!("Exiting app...");
-            kill_tunnel(ctx_app.clone());
+            kill_tunnel(context.clone());
         }
     })
 }
 
-/// The maximum number of reconnect tries to attempt
+/// The maximum number of reconnect tries to make while attempting to reconnect.
 const MAX_RETRIES: u32 = 5;
 
-/// Maintains the app context
+/// Maintains the app context, with all of the parameters needed to track the system state.
 struct ContextInner {
     /// Container for the tunnel process
     tunnel: Option<SshTunnel<TunnelChild>>,
@@ -87,12 +93,13 @@ struct ContextInner {
     /// Handle for the app window
     window: Option<Window>,
 
+    /// The current status of the ssh tunnel
     status: SshStatus,
 
     /// Number of connection retries left
     retries: u32,
 
-    /// Whether the tunnel is reconnecting
+    /// Whether the tunnel is currently trying to reconnect
     reconnecting: bool,
 }
 
@@ -108,7 +115,7 @@ impl ContextInner {
     }
 }
 
-/// Threadsafe context
+/// Wraps a threadsafe context in a tuple struct to enable
 struct Context(Arc<Mutex<ContextInner>>);
 
 impl Context {
@@ -121,14 +128,18 @@ impl Context {
         Context(self.0.clone())
     }
 
-    /// Locks the inner context
+    /// Locks the inner context and returns its reference
+    ///
+    /// This will not panic (unless the internal [lock](std::sync::Mutex::lock) panics), but the possible
+    /// [PoisonError](std::sync::PoisonError) must be handled. Since there is not much to do if the lock for the context is
+    /// poisoned but crash, it's probably easier and preferrable, to use [panic_lock](Context::panic_lock).
     fn lock(&self) -> Result<MutexGuard<ContextInner>> {
         self.0
             .lock()
             .map_err(|err| SshStatus::AppError(format!("Failed to lock context: {err}")))
     }
 
-    /// Locks the inner context
+    /// Locks the inner context and returns its reference
     ///
     /// # Panics
     ///
@@ -254,7 +265,7 @@ impl Context {
     }
 }
 
-/// User settings passed down from the front end
+/// User settings passed down from the GUI
 #[derive(Deserialize, Debug)]
 struct UserSettings<'a> {
     host: &'a str,
@@ -268,12 +279,6 @@ impl UserSettings<'_> {
     fn to_config(&self) -> result::Result<SshConfig, std::num::ParseIntError> {
         let port = self.port.parse()?;
         let flags = vec!["-t", "-t"];
-
-        // if cfg!(target_os = "windows") {
-        //     vec!["-T"]
-        // } else {
-        //     vec!["-t", "-t"]
-        // };
 
         Ok(SshConfig::new(
             self.host,
@@ -290,7 +295,14 @@ impl UserSettings<'_> {
 
 /// Command hook to start the tunnel process
 ///
-/// This will spawn a new process and then check the results
+/// This will spawn a new process and then check the results. The `settings` parameter originates in the JS front end, and
+/// the `context` parameter is the same that is given to the [mange](tauri::Builder::manage) method in the [main] function,
+/// and is passed in by the Tauri app framework.
+///
+/// # Returns
+///
+/// Returns a string containing the status signal that the JS front end can use to check the status of the command. This will
+/// always either be "CONNECTING" or "ERROR: <err message>".
 #[command]
 fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> String {
     let config = match settings.to_config() {
@@ -312,6 +324,15 @@ fn start_tunnel(settings: UserSettings<'_>, context: State<'_, Context>) -> Stri
 /// The process status resolving callback that's passed into the process watching thread will check the status
 /// and spawn an attempt_reconnect thread if it receives a `SshStatus::Dropped` status. It will then emit the
 /// captured status back to the front end.
+///
+/// # Errors
+///
+/// If the tunnel process fails to spawn or if it fails to acquire a lock on the tunnel's mutex, it will return an
+/// [SshStatus::AppError].
+///
+/// # Returns
+///
+/// For an explanation of the return values, see the documentation on [ssh_tunnel::start_and_watch_ssh_tunnel].
 fn spawn_new_tunnel(
     config: SshConfig,
     context: Context,
@@ -351,7 +372,16 @@ fn spawn_new_tunnel(
     ssh_tunnel::start_and_watch_ssh_tunnel(config, callback, false)
 }
 
-/// Checks the result sent from `spawn_new_tunnel()` or `attempt_reconnect()` and updates the status on the front end
+/// Checks the result sent from [start_tunnel] or [attempt_reconnect] and updates the status on the front end.
+///
+/// If the process completely failed to spawn, then the error status will be forwarded (emitted) to the front end. Otherwise,
+/// one of the **Transition** states ([SshStatus::Connecting] or [SshStatus::Reconnecting]) will be emitted, depending on the
+/// current state of the context.
+///
+/// # Returns
+///
+/// A String signal version of the final status. This is only used by [start_tunnel], which returns this status for some
+/// checks by the front end.
 fn manage_spawn_result(
     result: Result<(SshTunnel<TunnelChild>, SshHandle)>,
     context: Context,
@@ -375,16 +405,17 @@ fn manage_spawn_result(
     status.to_signal()
 }
 
-/// Spawns a reconnect attempt
+/// Spawns a reconnect attempt thread
 fn spawn_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     thread::spawn(move || {
         attempt_reconnect(config, context);
     });
 }
 
-/// Attempts to reconnect to the ssh server if the tunnel process is dropped
+/// Makes a single attempt to reconnect to the ssh server if the tunnel process is dropped
 ///
-/// If the reconnect succeeds then it will update the system
+/// The immediate result of the process spawn will be emitted to the JS front end. Once the ssh tunnel is fully connected (or
+/// fails), the final status of that connection will be emitted.
 fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
     thread::sleep(Duration::from_secs(3)); // Wait 3 seconds to try to reconnect
 
@@ -404,6 +435,9 @@ fn attempt_reconnect(config: Arc<Mutex<SshConfig>>, context: Context) {
 }
 
 /// Kills the tunnel process if it's running
+///
+/// The exit status of the process will be emitted to the JS front end automatically when the child process ends. If the
+/// tunnel's mutex fails to lock (unlikely), an [SshStatus::AppError] will be emitted instead.
 fn kill_tunnel(context: Context) {
     log::info!("Killing tunnel");
     match context.get_tunnel() {
@@ -419,7 +453,10 @@ fn kill_tunnel(context: Context) {
     }
 }
 
-/// Cammand to shut down the tunnel
+/// Cammand to hook shut down the tunnel
+///
+/// This will kill the tunnel process, if it's still running. The `context` parameter is the same that is given to the
+/// [mange](tauri::Builder::manage) method in the [main] function, and is passed in by the Tauri app framework.
 #[command]
 fn end_tunnel(context: State<'_, Context>) {
     kill_tunnel((*context).clone());
