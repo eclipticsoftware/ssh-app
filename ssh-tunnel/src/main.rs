@@ -1,24 +1,27 @@
-use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use clap::Parser;
-use ssh_tunnel::ChildProc;
-use ssh_tunnel::{ExitCondition, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
+use ssh_tunnel::{
+    config::SshConfig,
+    logger,
+    status::{ExitCondition, SshStatus},
+    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
+};
 
 fn main() -> Result<(), i32> {
     let args = Args::parse();
 
-    let mut logpath = dirs_next::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."));
-    
+    let mut logpath = dirs_next::home_dir().unwrap_or_else(|| PathBuf::from("."));
+
     logpath.push(".eclo-ssh-client.log");
 
     let logpath = logpath
         .into_os_string()
         .into_string()
         .expect("Failed to create log path");
-    
-    ssh_tunnel::configure_logger(&logpath).map_err(|err| {
+
+    logger::configure_logger(&logpath).map_err(|err| {
         println!("Failed to configure logger: {err}");
         1
     })?;

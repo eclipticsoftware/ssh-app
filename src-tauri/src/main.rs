@@ -15,7 +15,12 @@ use tauri::{window::Window, RunEvent, State};
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
 
-use ssh_tunnel::{ChildProc, SshConfig, SshHandle, SshStatus, SshTunnel, TunnelChild};
+use ssh_tunnel::{
+    config::SshConfig,
+    status::SshStatus,
+    tunnel::{ChildProc, SshHandle, SshTunnel, TunnelChild},
+    logger,
+};
 
 fn main() {
     let mut logpath = path::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -27,7 +32,7 @@ fn main() {
         .into_string()
         .expect("Failed to create log path");
 
-    if let Err(err) = ssh_tunnel::configure_logger(&logpath) {
+    if let Err(err) = logger::configure_logger(&logpath) {
         panic!("Failed to configure logger: {err}");
     }
     log::debug!("Running Eclo SSH Client");
@@ -70,6 +75,7 @@ fn main() {
     })
 }
 
+/// The maximum number of reconnect tries to attempt
 const MAX_RETRIES: u32 = 5;
 
 /// Maintains the app context
