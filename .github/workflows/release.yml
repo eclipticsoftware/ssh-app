@@ -62,7 +62,7 @@ jobs:
           toolchain: stable
 
       - name: Install app dependencies and build
-        run: yarn && yarn build
+        run: yarn && yarn build:react
         env:
           FA_TOKEN: ${{ secrets.FA_TOKEN }}
 
