@@ -29,13 +29,14 @@
 		"yup": "^0.32.11"
 	},
 	"scripts": {
+		"dev": "yarn start",
 		"start": "react-scripts start",
-		"build": "react-scripts build",
+		"build:react": "react-scripts build",
+		"build:tauri": "yarn tauri build",
+		"build": "yarn build:react && yarn build:tauri",
 		"test": "react-scripts test",
 		"eject": "react-scripts eject",
-		"dev": "yarn start",
 		"tauri": "tauri",
-		"bundle": "yarn build && tauri build",
 		"latest:gen": "node ./scripts/generate.latest.json.js"
 	},
 	"engines": {
