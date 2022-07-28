@@ -81,7 +81,7 @@ impl ChildProc for TunnelChild {
         let child = cmd
             .stdout(process::Stdio::piped())
             .stderr(process::Stdio::piped())
-            .creation_flags(0x08000000)
+            .creation_flags(0x08000000) // Suppresses terminal window - CREATE_NO_WINDOW
             .spawn()
             .map_err(|err| SshStatus::AppError(err.to_string()))?;
 
