@@ -1,0 +1,140 @@
+@startuml
+
+participant App as app
+participant "Tunnel\nLibrary" as lib
+participant "Tunnel\nProcess" as tunnel
+participant "Start Wait\nThread" as starter
+participant "Watcher\nThread" as watcher
+
+== Failed Connection ==
+
+group Connection Sequence
+
+app -> lib: start_and_watch_ssh_tunnel()
+activate lib
+
+create tunnel
+lib -> tunnel: spawn tunnel proc.\n begin connecting
+
+create starter
+lib -> starter: spawn wait_for_start()\nthread
+activate starter
+
+create watcher
+lib -> watcher: spawn ssh_watch_loop()
+activate watcher
+
+lib -->> app: status_callback: "CONNECTING"
+deactivate lib
+
+end
+
+tunnel -> tunnel: connection fails
+
+tunnel --> starter: no stdout captured
+starter -> starter: end without emit
+destroy starter
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+watcher -->> app: status_callback: **error status**
+destroy watcher
+
+== Successful Connection ==
+
+group Connection Sequence [New process and threads spawned]
+app <-[#FFFFFF]>watcher
+activate watcher
+activate starter
+end
+
+tunnel -> tunnel: connection established
+activate tunnel #FFBBBB
+
+tunnel --> starter: stdout captured
+starter -->> app: status_callback: "CONNECTED"
+destroy starter
+
+... Tunnel is active...
+
+== Drop and Recover ==
+
+tunnel -> tunnel: drop connection
+destroy tunnel
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+watcher -->> app: status_callback: "RECONNECTING"
+destroy watcher
+
+loop fewer than 5 times
+
+group Connection Sequence [New process and threads spawned]
+app <-[#FFFFFF]>watcher
+activate watcher
+activate starter
+end
+
+alt Connection Fails
+tunnel -> tunnel: connection fails
+tunnel --> starter: no stdout captured
+starter -> starter: end without emit
+destroy starter
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+watcher -->> app: status_callback: "RECONNECTING"
+
+else Connection Succeeds
+activate starter
+                        
+tunnel -> tunnel: connection established
+activate tunnel #FFBBBB
+
+tunnel --> starter: stdout captured
+starter -->> app: status_callback: "CONNECTED"
+destroy starter
+
+end
+end
+
+
+... Tunnel is active...
+
+== Drop and Fail to Recover ==
+
+tunnel -> tunnel: drop connection
+destroy tunnel
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+watcher -->> app: status_callback: "RECONNECTING"
+destroy watcher
+
+loop 5 times
+
+group Connection Sequence [New process and threads spawned]
+app <-[#FFFFFF]>watcher
+activate watcher
+activate starter
+end
+
+tunnel -> tunnel: connection fails
+
+tunnel --> starter: no stdout captured
+starter -> starter: end without emit
+deactivate starter
+destroy starter
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+
+alt iteration < 5
+watcher -->> app: status_callback: "RECONNECTING"
+else iteration == 5
+watcher -->> app: status_callback: **error status**
+destroy watcher
+end
+end
+
+@enduml

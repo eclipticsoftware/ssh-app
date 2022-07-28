@@ -1,0 +1,50 @@
+@startuml
+
+participant App as app
+participant "Tunnel\nLibrary" as lib
+participant "Tunnel\nProcess" as tunnel
+participant "Start Wait\nThread" as starter
+participant "Watcher\nThread" as watcher
+
+group Connection Sequence
+
+app -> lib: start_and_watch_ssh_tunnel()
+activate lib
+
+create tunnel
+lib -> tunnel: spawn tunnel proc.\n begin connecting
+
+create starter
+lib -> starter: spawn wait_for_start()\nthread
+activate starter
+
+create watcher
+lib -> watcher: spawn ssh_watch_loop()
+activate watcher
+
+lib -->> app: status_callback: "CONNECTING"
+deactivate lib
+
+end
+
+tunnel -> tunnel: connection established
+activate tunnel #FFBBBB
+
+tunnel --> starter: stdout captured
+starter -->> app: status_callback: "CONNECTED"
+deactivate starter
+destroy starter
+
+... Tunnel is active...
+
+app -> tunnel: kill()
+deactivate tunnel
+destroy tunnel
+
+tunnel --> watcher: detect process end
+tunnel --> watcher: stderr captured
+watcher -->> app: status_callback: "READY"
+deactivate watcher
+destroy watcher
+
+@enduml
