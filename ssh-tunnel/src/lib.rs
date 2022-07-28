@@ -1,3 +1,39 @@
+#![cfg_attr(feature = "doc-images",
+cfg_attr(all(),
+doc = ::embed_doc_image::embed_image!("normal_sequence", "doc/normal-seq.png"),
+doc = ::embed_doc_image::embed_image!("abnormal_sequence", "doc/abnormal-seq.png")))]
+#![cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile with feature `doc-images` and Rust version >= 1.54 \
+           to enable."
+)]
+//! Constructing SSH tunnels
+//!
+//! The `ssh-tunnel` library wraps [OpenSSH](https://www.openssh.com/), spawning a child SSH process that uses
+//! port-forwarding to establish an SSH tunnel. The library manages the lifecycle of the SSH process asynchronously and
+//! communicates the process state through a callback passed into [start_and_watch_ssh_tunnel], which is the principal entry
+//! point to the library.
+//!
+//! The status of the SSH process is communicated using the [SshStatus](crate::status::SshStatus) enum and is determined by
+//! parsing the text captured from the process's stderr stream.
+//!
+//! # Successful Connection and Disconnection
+//!
+//! A normal life-cycle, in which the SSH tunnel successfully connects to the host, and cleanly disconnects when the user is
+//! finished, is shown in the following sequence:
+//!
+//! ![Normal Lifecycle Sequence][normal_sequence]
+//!
+//! # Connection Failures and Dropped Tunnels
+//!
+//! The following sequence shows how the library manages connection failures. It includes a suggested design for managing
+//! dropped connections, in which the connection is initially established, and then is dropped due to a network or server
+//! failure. This dropped-connection handling is done in the `status_callback` callback, which internally calls
+//! [start_and_watch_ssh_tunnel] to attempt to re-establish a connection. In this example, the application will make five
+//! attempts to reconnect before giving up and accepting the [SshStatus::Dropped](crate::status::SshStatus::Dropped) status.
+//!
+//! ![Lifecycle With Errors Sequence][abnormal_sequence]
+
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};

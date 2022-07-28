@@ -9,8 +9,17 @@ edition = "2021"
 clap = {version = "3.2.8", features = ["derive"]}
 ctrlc = "3.2.2"
 dirs-next = "2.0.0"
+embed-doc-image = "0.1.4"
 log = "0.4.17"
 log4rs = "1.1.1"
 num-derive = "0.3.3"
 num-traits = "0.2.15"
 regex = "1.6.0"
+
+[features]
+doc-images = []
+
+[package.metadata.docs.rs]
+# docs.rs uses a nightly compiler, so by instructing it to use our `doc-images` feature we
+# ensure that it will render any images that we may have in inner attribute documentation.
+features = ["doc-images"]
